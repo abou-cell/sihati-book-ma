@@ -1,16 +1,16 @@
 # Sihati
 
-Sihati is a Moroccan medical appointment booking platform (initial setup) inspired by modern healthcare scheduling workflows. This foundation is designed for future modules such as practitioner search, patient booking, practitioner/admin dashboards, in-person appointments, secure video consultations, and online payments for teleconsultations.
+Sihati is a Moroccan medical appointment booking platform (initial setup) inspired by modern healthcare booking workflows. This repository currently contains a production-ready foundation for future modules such as practitioner search, patient booking, practitioner/admin dashboards, video consultations, and online payment.
 
-## Tech Stack
+## Tech stack
 
 - Next.js (App Router)
 - TypeScript (strict mode)
 - Tailwind CSS
-- ESLint (Next.js core web vitals)
+- ESLint
 - Modular component architecture
 
-## Folder Structure
+## Folder structure
 
 ```text
 app/
@@ -31,6 +31,8 @@ components/
   layout/
   search/
   ui/
+docs/
+emails/
 lib/
   auth/
   config/
@@ -39,55 +41,58 @@ lib/
   services/
   validators/
   utils.ts
-docs/
-emails/
 prisma/
 tests/
 types/
 ```
 
-## Available Scripts
+## Available scripts
 
-- `npm run dev`: Start local development server
-- `npm run build`: Create production build
-- `npm run start`: Run production server
-- `npm run lint`: Run lint checks
-- `npm run typecheck`: Run TypeScript type checks
+- `npm run dev` — start development server
+- `npm run build` — create production build
+- `npm run start` — run production server
+- `npm run lint` — run ESLint checks
+- `npm run typecheck` — run TypeScript checks
 
-## Local Development
+## Local development instructions
 
-1. Install dependencies:
+1. Install Node.js 20.11+.
+2. Install dependencies:
    ```bash
    npm install
    ```
-2. Copy environment variables:
+3. Copy environment variables:
    ```bash
    cp .env.example .env.local
    ```
-3. Start development server:
+4. Start development server:
    ```bash
    npm run dev
    ```
-4. Open `http://localhost:3000`.
+5. Open `http://localhost:3000`.
 
-## Testing (Placeholder)
+## Testing placeholder
 
-A full testing stack (unit, integration, and e2e) will be added in the next module. Recommended baseline:
-- Unit/component: Vitest + React Testing Library
-- E2E: Playwright
-- CI gates: lint + typecheck + tests + build
+Testing is intentionally minimal at this stage. Recommended next steps:
 
-## Deployment (Placeholder)
+- Add unit tests for reusable UI and utility modules (e.g., with Vitest + React Testing Library).
+- Add integration/e2e tests for key flows (e.g., Playwright).
+- Add CI checks for `lint`, `typecheck`, tests, and build.
 
-Recommended deployment target: Vercel for first release, with environment-specific configuration and branch preview deployments.
+## Deployment placeholder
 
-Production readiness checklist (next phase):
-- Add CI/CD pipeline (GitHub Actions)
-- Add runtime monitoring and error reporting
-- Add security headers/CSP hardening per environment
-- Add dependency and secret scanning
-- Add database migrations and backup strategy
+Recommended production deployment baseline:
 
-## Next Recommended Module
+- Platform: Vercel (or containerized deployment with Node.js 20+).
+- Required checks before deploy: `npm run lint`, `npm run typecheck`, `npm run build`.
+- Configure environment variables securely via platform secrets manager.
+- Add security headers, observability, uptime monitoring, and rollback strategy in the next iteration.
 
-Implement authentication and authorization foundations (patient, practitioner, admin roles) with secure session management, route protection, and role-based layout guards.
+## Next recommended module
+
+Implement **practitioner search domain modeling and API layer** next (without booking flow yet), including:
+
+- Search filters (specialty, city, language)
+- Typed DTOs/validators
+- Service abstraction and mocked data source
+- Initial tests for search behavior
