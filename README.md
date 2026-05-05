@@ -550,3 +550,11 @@ The page reads all required parameters from the URL, renders practitioner/reason
 2. Run pre-deploy checks (`npm run check`).
 3. Build (`npm run build`) and deploy (`npm run start` or platform runtime).
 4. Verify rate-limit behavior, access control paths, and logging in production monitoring.
+
+## Current integration status
+
+A full repository integration audit was completed on **2026-05-05**.
+
+- Read the report: [`docs/integration-audit.md`](docs/integration-audit.md)
+- Scope includes: data layer maturity, auth consistency, route integrity, quality gates, security posture, and roadmap gap analysis.
+
