@@ -404,3 +404,49 @@ The page reads all required parameters from the URL, renders practitioner/reason
   ```
 - Enforce CI quality gates (`lint`, `typecheck`, tests, build) before release.
 - Ensure role and ownership checks remain server-enforced when wiring real auth and data sources.
+
+## Video consultation page
+
+### Route and behavior
+
+- Route: `/consultation/[appointmentId]`.
+- Page validates request authentication through `x-user-id` and `x-user-role` headers.
+- Access is restricted to the appointment patient or practitioner only.
+- Only `VIDEO` appointments can be opened on this route.
+- `CANCELLED` appointments are explicitly blocked.
+- If access is attempted before the allowed window, the page shows a waiting room state.
+- When access is valid and time window is open, the page renders:
+  - consultation metadata,
+  - practitioner/patient information,
+  - security status,
+  - Jitsi embedded iframe with a **Join consultation** button fallback that opens in a new tab.
+
+### Access window rules
+
+- Join access opens exactly **15 minutes before appointment start time**.
+- Join access expires exactly **2 hours after appointment end time**.
+- Requests outside this window are denied with explicit security messaging.
+
+### Security notes for video consultations
+
+- Authentication is mandatory: missing identity headers result in access denial.
+- Authorization is mandatory: users not assigned to the appointment are denied.
+- Appointment integrity checks enforce consultation type and cancellation status before any room exposure.
+- Jitsi embed uses `referrerPolicy="no-referrer"` and a constrained iframe `allow` policy for camera/mic/fullscreen and screen-share capabilities.
+- For production, replace header-based mock identity with server-side session middleware and signed token verification.
+
+### Setup, testing, and deployment guidance (video module)
+
+- Setup: ensure your auth layer injects trusted user identity for server-rendered pages (e.g., session cookie to server context).
+- Testing:
+  - validate patient access success,
+  - validate practitioner access success,
+  - validate unauthorized user denial,
+  - validate cancelled appointment denial,
+  - validate non-video appointment denial,
+  - validate waiting-room timing and expired timing boundaries.
+- Deployment:
+  - enforce HTTPS and secure cookie/session flags,
+  - centralize audit logging for consultation access attempts,
+  - monitor denied-access rates and abnormal room-entry patterns,
+  - externalize room naming/signing strategy to backend service to avoid predictable meeting IDs.
