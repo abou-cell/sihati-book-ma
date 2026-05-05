@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PATIENT
+  PRACTITIONER
+  ADMIN
+}
+
+enum ConsultationType {
+  IN_PERSON
+  VIDEO
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum NotificationType {
+  APPOINTMENT_CONFIRMATION_PATIENT
+  APPOINTMENT_CONFIRMATION_PRACTITIONER
+  APPOINTMENT_CANCELLATION
+  VIDEO_CONSULTATION_LINK
+  APPOINTMENT_REMINDER_24H
+  APPOINTMENT_REMINDER_2H
+}
+
+model User {
+  id           String   @id @default(cuid())
+  role         UserRole
+  email        String   @unique
+  fullName     String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  patientAppointments Appointment[] @relation("PatientAppointments")
+}
+
+model Practitioner {
+  id                       String   @id
+  name                     String
+  specialty                String
+  city                     String
+  clinic                   String?
+  consultationFee          Int?
+  isVerified               Boolean  @default(false)
+  acceptsVideoConsultation Boolean  @default(false)
+  nextAvailableSlot        DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  reasons      ConsultationReason[]
+  rules        AvailabilityRule[]
+  blockedDates BlockedDate[]
+  appointments Appointment[]
+}
+
+model ConsultationReason {
+  id                  String  @id
+  practitionerId      String
+  label               String
+  inPersonPrice       Int
+  videoPrice          Int?
+  isVideoEnabled      Boolean @default(false)
+  slotDurationMinutes Int
+
+  practitioner Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+}
+
+model AvailabilityRule {
+  id               String           @id
+  practitionerId   String
+  weekday          String
+  startTime        String
+  endTime          String
+  breakStart       String?
+  breakEnd         String?
+  consultationType ConsultationType
+  isActive         Boolean          @default(true)
+
+  practitioner Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+}
+
+model BlockedDate {
+  id             String @id
+  practitionerId String
+  date           String
+  reason         String?
+
+  practitioner Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+}
+
+model Appointment {
+  id               String            @id
+  patientId        String
+  practitionerId   String
+  reasonId         String
+  consultationType ConsultationType
+  startTime        DateTime
+  endTime          DateTime
+  status           AppointmentStatus
+  createdAt        DateTime          @default(now())
+
+  patient      User               @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Restrict)
+  practitioner Practitioner       @relation(fields: [practitionerId], references: [id], onDelete: Restrict)
+  reason       ConsultationReason @relation(fields: [reasonId], references: [id], onDelete: Restrict)
+  notifications Notification[]
+
+  @@index([practitionerId, startTime])
+}
+
+model Notification {
+  id            String             @id
+  appointmentId String
+  channel       NotificationChannel
+  type          NotificationType?
+  recipient     String?
+  subject       String?
+  message       String?
+  status        NotificationStatus
+  sentAt        DateTime?
+  metadata      Json?
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}

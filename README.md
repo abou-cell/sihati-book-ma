@@ -558,3 +558,10 @@ A full repository integration audit was completed on **2026-05-05**.
 - Read the report: [`docs/integration-audit.md`](docs/integration-audit.md)
 - Scope includes: data layer maturity, auth consistency, route integrity, quality gates, security posture, and roadmap gap analysis.
 
+
+## Repository layer and Prisma integration (2026-05-05)
+- Added Prisma schema baseline at `prisma/schema.prisma` and client singleton at `lib/db/prisma.ts`.
+- Introduced typed repositories under `lib/repositories/` for practitioner, availability, appointment, notification, and user reads/writes.
+- `POST /api/appointments` is now Prisma-backed through repository abstraction.
+- `GET /api/practitioners/[id]/available-slots` is Prisma-backed when `DATABASE_URL` is configured, with isolated mock fallback under `lib/repositories/mock/availability.repository.ts`.
+- Remaining mock areas: demo data in frontend pages (`app/dashboard/patient/page.tsx`, `app/consultation/[appointmentId]/page.tsx`, `app/booking/success/[appointmentId]/page.tsx`) and practitioner search service seed data.
