@@ -1,63 +1,11 @@
 import { AppointmentError, AppointmentService } from "@/lib/services/appointment.service";
+import { PrismaAppointmentRepository } from "@/lib/repositories/appointment.repository";
 import { getUserContext, requireRole } from "@/lib/security/access-control";
 import { AppError, safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
 
-const practitioners = [
-  { id: "p_1", isVerified: true, name: "Dr. Sara Alaoui", specialty: "Dermatology", city: "Casablanca" },
-  { id: "p_2", isVerified: false, name: "Dr. Ali Karim", specialty: "Cardiology", city: "Rabat" },
-];
-
-const reasons = [
-  {
-    id: "reason_general",
-    practitionerId: "p_1",
-    label: "General consultation",
-    inPersonPrice: 300,
-    videoPrice: 250,
-    isVideoEnabled: true,
-    slotDurationMinutes: 30,
-  },
-];
-
-const appointments: Array<any> = [];
-const notifications: Array<any> = [];
-
-const service = new AppointmentService({
-  async getPractitionerById(id) {
-    return practitioners.find((item) => item.id === id) ?? null;
-  },
-  async getReasonById(id) {
-    return reasons.find((item) => item.id === id) ?? null;
-  },
-  async findActiveAppointmentBySlot(practitionerId, startTime) {
-    return (
-      appointments.find(
-        (item) => item.practitionerId === practitionerId && item.startTime === startTime && item.status !== "CANCELLED"
-      ) ?? null
-    );
-  },
-  async createAppointment(input) {
-    const id = `apt_${appointments.length + 1}`;
-    const appointment = { id, ...input };
-    const raceCheck = appointments.find(
-      (item) => item.practitionerId === input.practitionerId && item.startTime === input.startTime && item.status !== "CANCELLED"
-    );
-
-    if (raceCheck) {
-      throw new AppointmentError("SLOT_NOT_AVAILABLE", "Selected slot is already booked");
-    }
-
-    appointments.push(appointment);
-    return appointment;
-  },
-  async createNotification(input) {
-    const notification = { id: `notif_${notifications.length + 1}`, ...input };
-    notifications.push(notification);
-    return notification;
-  },
-});
+const service = new AppointmentService(new PrismaAppointmentRepository());
 
 export const POST = withErrorHandling(async (request: Request) => {
   const { userId, role } = getUserContext(request);
