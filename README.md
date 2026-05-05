@@ -337,3 +337,70 @@ The page reads all required parameters from the URL, renders practitioner/reason
   - unauthenticated users,
   - authenticated users unrelated to the appointment.
 - Authorization checks are enforced server-side in the page module and must not rely on client-side gating.
+
+## Patient dashboard module
+
+### Route
+
+- `/dashboard/patient` (`app/dashboard/patient/page.tsx`).
+
+### Patient dashboard features
+
+- Displays upcoming appointments and past appointments in separate sections.
+- Shows appointment status, practitioner name, specialty, date/time, and consultation type.
+- Supports optional cancellation reason input for future appointments.
+- Exposes **Cancel appointment** action for future appointments only.
+- Exposes **View details** action for both future and past appointments.
+- Shows **Join video** action only for `VIDEO` appointments when join is available.
+- Includes a medical documents placeholder section.
+- Includes a patient profile summary card.
+- Uses responsive layout with stacked mobile sections and multi-column desktop layout.
+
+### Access control rules
+
+- Route is restricted to users with role `PATIENT`.
+- Patient can only see appointments where `appointment.patientId === currentUser.id`.
+- Patient cannot cancel past appointments.
+- Cancellation reason is optional and persisted in local dashboard state for detail view.
+
+### Setup, test, and deployment instructions
+
+#### Setup
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Start development server:
+   ```bash
+   npm run dev
+   ```
+3. Open patient dashboard route:
+   ```
+   http://localhost:3000/dashboard/patient
+   ```
+
+#### Testing
+
+- Run static quality checks:
+  ```bash
+  npm run lint
+  npm run typecheck
+  ```
+- Recommended pre-commit gate:
+  ```bash
+  npm run check
+  ```
+
+#### Deployment
+
+- Build production artifact:
+  ```bash
+  npm run build
+  ```
+- Run production server:
+  ```bash
+  npm run start
+  ```
+- Enforce CI quality gates (`lint`, `typecheck`, tests, build) before release.
+- Ensure role and ownership checks remain server-enforced when wiring real auth and data sources.
