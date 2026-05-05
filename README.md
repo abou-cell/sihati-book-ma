@@ -98,6 +98,57 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 }
 ```
 
+
+## Practitioner available slots API
+
+### Endpoint
+
+`GET /api/practitioners/[id]/available-slots`
+
+### Query parameters
+
+- `reasonId` (required): consultation reason id.
+- `startDate` (required): `YYYY-MM-DD`.
+- `endDate` (required): `YYYY-MM-DD`.
+- `consultationType` (required): `IN_PERSON` or `VIDEO`.
+- `isPublic` (optional, default `true`): when `true`, unverified practitioners are blocked.
+
+### Example request
+
+`/api/practitioners/p_1/available-slots?reasonId=reason_general&startDate=2026-05-10&endDate=2026-05-20&consultationType=IN_PERSON`
+
+### Example response
+
+```json
+{
+  "data": [
+    {
+      "date": "2026-05-11",
+      "slots": [
+        {
+          "startTime": "2026-05-11T09:30:00.000Z",
+          "endTime": "2026-05-11T10:00:00.000Z",
+          "consultationType": "IN_PERSON"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Validation and business rules
+
+- Query validation is enforced with Zod and returns structured `400` errors.
+- `endDate` must be on or after `startDate`.
+- Requested date range is limited to a maximum of **30 days**.
+- `consultationType` must be one of `IN_PERSON` or `VIDEO`.
+- Slot generation uses `AvailabilityService` and excludes:
+  - blocked dates,
+  - confirmed appointments,
+  - pending appointments that can block payment flow,
+  - past time slots.
+- Public access (`isPublic=true`) is denied for unverified practitioners.
+
 ## Testing and quality best practices
 
 - Run `npm run check` before every commit.
