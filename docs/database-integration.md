@@ -1,31 +1,33 @@
 # Database integration status
 
-## Checks completed (2026-05-05)
-- `prisma/schema.prisma`: added.
-- Prisma client configuration: added (`lib/db/prisma.ts`).
-- Seed data: not yet implemented as executable seed script.
-- In-memory usage detected and isolated.
+## Checks completed (May 5, 2026)
+- `prisma/schema.prisma` exists and defines core booking models.
+- Prisma Client is configured in `lib/db/prisma.ts` with singleton protection.
+- Seed script is **not** implemented yet (`prisma/seed.ts` missing).
+- In-memory data usage was audited and isolated behind repository interfaces.
 
-## Repository layer
-- `lib/repositories/practitioner.repository.ts` (Prisma-backed practitioner reads).
-- `lib/repositories/availability.repository.ts` (Prisma-backed availability and appointment-slot reads).
-- `lib/repositories/appointment.repository.ts` (Prisma-backed booking with transaction conflict check).
-- `lib/repositories/notification.repository.ts` (Prisma-backed notification persistence).
-- `lib/repositories/user.repository.ts` (safe user reads without `passwordHash`).
+## Repository layer overview
+- `lib/repositories/practitioner.repository.ts`
+  - `PrismaPractitionerRepository` for practitioner public reads.
+  - `PrismaPractitionerSearchRepository` for searchable practitioner listing.
+- `lib/repositories/availability.repository.ts` for rules/blocked dates/appointments/reasons.
+- `lib/repositories/appointment.repository.ts` for transactional appointment creation + slot conflict recheck.
+- `lib/repositories/notification.repository.ts` for notification persistence.
+- `lib/repositories/user.repository.ts` for safe user reads (never exposes `passwordHash`).
 
-## Route integration
-- `POST /api/appointments` now uses `PrismaAppointmentRepository` via `AppointmentService`.
-- `GET /api/practitioners/[id]/available-slots` uses Prisma repositories when `DATABASE_URL` is defined.
+## Route integration status
+- `POST /api/appointments` uses Prisma-backed repository + service.
+- `GET /api/practitioners/[id]/available-slots` uses Prisma when `DATABASE_URL` is set, otherwise mock fallback.
+- `GET /api/practitioners/search` now uses repository abstraction and switches between Prisma and mock repository.
 
 ## Remaining mock areas
-- Availability route fallback mock repository is isolated in `lib/repositories/mock/availability.repository.ts` for non-DB environments.
-- Frontend demo pages still contain local demo arrays (patient dashboard, consultation demo, booking success demo) and are intentionally unchanged to avoid UI/business-flow breakage.
+- `lib/repositories/mock/availability.repository.ts` (fallback for non-DB environments).
+- `lib/repositories/mock/practitioner-search.repository.ts` (fallback for non-DB environments).
 
-## Security notes
-- Public repository DTOs never expose `passwordHash`.
-- Booking creation uses transaction-based slot conflict recheck.
+## Security and reliability notes
+- Safe DTO selection is used for users; `passwordHash` is never returned.
+- Appointment creation uses a transaction to reduce booking race-condition risks.
 
 ## TODO
-- Add Prisma seed script (`prisma/seed.ts`) and npm seed command.
-- Add database-level partial unique index for non-cancelled appointment slot conflict prevention.
-- Migrate remaining route/page mock datasets behind repository interfaces.
+- Add executable seed support (`prisma/seed.ts` and package scripts).
+- Add DB-level unique protection for active practitioner slot conflicts.

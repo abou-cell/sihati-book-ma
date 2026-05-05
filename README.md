@@ -565,3 +565,22 @@ A full repository integration audit was completed on **2026-05-05**.
 - `POST /api/appointments` is now Prisma-backed through repository abstraction.
 - `GET /api/practitioners/[id]/available-slots` is Prisma-backed when `DATABASE_URL` is configured, with isolated mock fallback under `lib/repositories/mock/availability.repository.ts`.
 - Remaining mock areas: demo data in frontend pages (`app/dashboard/patient/page.tsx`, `app/consultation/[appointmentId]/page.tsx`, `app/booking/success/[appointmentId]/page.tsx`) and practitioner search service seed data.
+
+## Repository layer and Prisma integration status
+
+### Repository layer overview
+- Service modules keep business rules, while repository modules encapsulate persistence queries.
+- Primary repository implementations live in `lib/repositories/*.repository.ts`.
+- Non-database fallbacks are isolated in `lib/repositories/mock/*`.
+
+### Current Prisma-backed modules
+- Appointments: transactional create + notification write.
+- Availability: rules, blocked dates, existing appointments, consultation reason lookups.
+- Practitioners: public practitioner lookup and searchable listing.
+- Users: safe user reads excluding sensitive fields.
+
+### Remaining mock-backed areas
+- Practitioner search fallback (used only when `DATABASE_URL` is not configured).
+- Availability fallback (used only when `DATABASE_URL` is not configured).
+
+For detailed status and migration notes, see `docs/database-integration.md`.
