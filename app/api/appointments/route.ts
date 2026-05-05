@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-
 import { AppointmentError, AppointmentService } from "@/lib/services/appointment.service";
+import { getUserContext, requireRole } from "@/lib/security/access-control";
+import { AppError, safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
 
 const practitioners = [
@@ -19,15 +19,6 @@ const reasons = [
     isVideoEnabled: true,
     slotDurationMinutes: 30,
   },
-  {
-    id: "reason_procedure",
-    practitionerId: "p_1",
-    label: "In-clinic procedure",
-    inPersonPrice: 600,
-    videoPrice: null,
-    isVideoEnabled: false,
-    slotDurationMinutes: 45,
-  },
 ];
 
 const appointments: Array<any> = [];
@@ -41,9 +32,11 @@ const service = new AppointmentService({
     return reasons.find((item) => item.id === id) ?? null;
   },
   async findActiveAppointmentBySlot(practitionerId, startTime) {
-    return appointments.find(
-      (item) => item.practitionerId === practitionerId && item.startTime === startTime && item.status !== "CANCELLED"
-    ) ?? null;
+    return (
+      appointments.find(
+        (item) => item.practitionerId === practitionerId && item.startTime === startTime && item.status !== "CANCELLED"
+      ) ?? null
+    );
   },
   async createAppointment(input) {
     const id = `apt_${appointments.length + 1}`;
@@ -66,33 +59,23 @@ const service = new AppointmentService({
   },
 });
 
-export async function POST(request: Request) {
+export const POST = withErrorHandling(async (request: Request) => {
+  const { userId, role } = getUserContext(request);
+  requireRole(role, ["PATIENT"]);
+
+  enforceRateLimit({ key: `booking:${userId}`, limit: 10, windowMs: 60_000 });
+
+  const body = await request.json();
+  const payload = createAppointmentSchema.parse(body);
+
   try {
-    const role = request.headers.get("x-user-role");
-    const patientId = request.headers.get("x-user-id");
-
-    if (!role || !patientId) {
-      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
-    }
-
-    if (role !== "PATIENT") {
-      return NextResponse.json({ message: "Only patients can create appointments" }, { status: 403 });
-    }
-
-    const body = await request.json();
-    const payload = createAppointmentSchema.parse(body);
-
-    const result = await service.createAppointment(payload, patientId);
-    return NextResponse.json({ data: result }, { status: 201 });
+    const result = await service.createAppointment(payload, userId);
+    return safeJsonResponse(result, 201);
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json({ message: "Invalid request payload", errors: error.flatten() }, { status: 400 });
-    }
-
     if (error instanceof AppointmentError) {
-      return NextResponse.json({ message: error.message, code: error.code }, { status: 409 });
+      throw new AppError(error.code, 409, error.message);
     }
 
-    return NextResponse.json({ message: "Unexpected server error" }, { status: 500 });
+    throw error;
   }
-}
+});
