@@ -139,3 +139,65 @@ For deeper configuration details, see `docs/configuration.md`.
 - `minPrice` / `maxPrice`: bounded integer filtering for in-person consultation fee.
 - `sort`: supports `nextAvailable`, `priceAsc`, and `priceDesc`.
 - `page`: updated when paginating; reset to `1` when filters change.
+
+## Practitioner availability module
+
+### Availability logic
+
+- Route: `/dashboard/practitioner/availability`.
+- Practitioners can create and manage multiple availability rules.
+- Each rule targets a single weekday and one consultation type (`IN_PERSON` or `VIDEO`).
+- Rules can be toggled active/inactive without deletion.
+- Practitioners can block specific dates that should not expose any slots.
+- Input validation is centralized in `lib/validators/availability.ts`.
+
+### Slot generation rules
+
+Main service function: `getAvailableSlots(practitionerId, reasonId, dateRange, consultationType)`.
+
+Generation pipeline:
+
+1. Validate input payload (`practitionerId`, `reasonId`, date range, consultation type).
+2. Load active availability rules for the practitioner and selected consultation type.
+3. Load blocked dates for the same practitioner and date range.
+4. Load existing appointments in range and exclude cancelled records.
+5. Load consultation reason and use its `slotDurationMinutes`.
+6. For each day in date range:
+   - Skip blocked dates.
+   - Match weekday rules.
+   - Generate contiguous slots from `startTime` to `endTime`.
+   - Remove slots overlapping break window (`breakStart`-`breakEnd`).
+   - Remove past slots.
+   - Remove already booked slots.
+7. Return chronologically sorted available slots.
+
+### Security notes for availability
+
+- Always scope reads/writes by authenticated practitioner id (no cross-practitioner access).
+- Never trust client-supplied practitioner ids without server-side ownership verification.
+- Validate all rule and blocked-date payloads on the server before persistence.
+- Exclude cancelled appointments only; pending/confirmed appointments must block slots.
+- Keep slot generation and filtering in server-side service modules to prevent client tampering.
+
+## Setup, testing, and deployment guidance (production)
+
+### Setup
+
+- Use Node.js `>=20.11.0`.
+- Install dependencies via `npm install`.
+- Configure environment variables in `.env.local` (development) and your secret manager (staging/production).
+
+### Testing strategy
+
+- Minimum local gate before commit: `npm run check`.
+- Add unit tests for:
+  - availability validators
+  - `getAvailableSlots` edge cases (breaks, blocked dates, booked slots, past slots)
+- Add integration tests for authenticated practitioner ownership enforcement in availability routes.
+
+### Deployment best practices
+
+- Enforce CI stages: lint -> typecheck -> tests -> build.
+- Deploy immutable builds and pin runtime Node version.
+- Add structured logs and alerting for scheduling failures and abnormal slot-generation latency.
+- Rotate secrets and audit access controls for practitioner scheduling data regularly.
