@@ -309,3 +309,31 @@ The page reads all required parameters from the URL, renders practitioner/reason
 - Enforce real authentication middleware/session validation in production (replace demo headers).
 - Add database unique/partial index over `(practitionerId, startTime)` for non-cancelled appointments.
 - Emit audit logs for appointment creation and conflict failures.
+
+
+## Booking success page
+
+### Route and behavior
+
+- Route: `/booking/success/[appointmentId]`.
+- Displays appointment confirmation with:
+  - practitioner name,
+  - specialty,
+  - clinic address for in-person appointments,
+  - video consultation status for video appointments,
+  - appointment date and time,
+  - **View my appointments** CTA,
+  - **Add to calendar** placeholder button (non-functional by design).
+- Payment logic is intentionally excluded from this page.
+- Video room creation is intentionally excluded from this page unless provided by a dedicated existing module.
+
+### Access control rules
+
+- Returns `404` when `appointmentId` does not exist.
+- Allows access for:
+  - the patient who owns the appointment,
+  - the practitioner assigned to the same appointment.
+- Denies access (`403`) to:
+  - unauthenticated users,
+  - authenticated users unrelated to the appointment.
+- Authorization checks are enforced server-side in the page module and must not rely on client-side gating.
