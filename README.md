@@ -596,3 +596,7 @@ For detailed status and migration notes, see `docs/database-integration.md`.
 - APIs enforce role checks server-side and return consistent auth errors.
 - Server pages enforce role checks server-side and redirect unauthorized users to `/access-denied`.
 - See `docs/authentication.md` for full migration path to production cookie/session/JWT auth.
+
+## Project roadmap
+
+- See `docs/completion-roadmap.md` for the current completion and production-readiness plan.
