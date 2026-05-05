@@ -252,3 +252,60 @@ Generation pipeline:
 - Deploy immutable builds and pin runtime Node version.
 - Add structured logs and alerting for scheduling failures and abnormal slot-generation latency.
 - Rotate secrets and audit access controls for practitioner scheduling data regularly.
+
+## Appointment creation flow
+
+### Route and files
+
+- Booking confirmation page: `app/booking/new/page.tsx`
+- Appointment validator: `lib/validators/appointment.ts`
+- Appointment orchestration service: `lib/services/appointment.service.ts`
+- API endpoint: `POST /api/appointments` in `app/api/appointments/route.ts`
+
+### URL contract for booking page
+
+`/booking/new?practitionerId=...&reasonId=...&consultationType=IN_PERSON|VIDEO&startTime=ISO_DATE`
+
+The page reads all required parameters from the URL, renders practitioner/reason/date-time/price summaries, and asks user confirmation before creating the appointment.
+
+### Appointment status rules
+
+- `IN_PERSON` => appointment is created directly as `CONFIRMED`.
+- `VIDEO` => appointment is created as `PENDING` to support a future payment capture flow.
+
+### API security and business rules
+
+`POST /api/appointments` enforces:
+
+- authenticated user headers present and role = `PATIENT`.
+- practitioner must be verified before booking.
+- consultation reason must belong to selected practitioner.
+- `VIDEO` booking is blocked if reason is not video-enabled.
+- start time must be a valid future ISO datetime.
+- slot is re-checked for availability before creation.
+- a second race-condition check is done right at insert time.
+- placeholder notification is created after appointment record.
+
+### Setup, test, and deployment instructions
+
+#### Setup
+
+1. Install dependencies: `npm install`
+2. Start local app: `npm run dev`
+3. Open booking page with params, for example:
+   - `/booking/new?practitionerId=p_1&reasonId=reason_general&consultationType=IN_PERSON&startTime=2026-06-01T09:00:00.000Z`
+
+#### Test and quality
+
+- Run lint and type safety checks:
+  - `npm run check`
+- Run default test gate:
+  - `npm test`
+- Add integration tests for concurrent booking attempts and role authorization failures.
+
+#### Deployment notes
+
+- Keep appointment creation server-side (API route + service).
+- Enforce real authentication middleware/session validation in production (replace demo headers).
+- Add database unique/partial index over `(practitionerId, startTime)` for non-cancelled appointments.
+- Emit audit logs for appointment creation and conflict failures.
