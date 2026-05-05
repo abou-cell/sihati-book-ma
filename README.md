@@ -450,3 +450,55 @@ The page reads all required parameters from the URL, renders practitioner/reason
   - centralize audit logging for consultation access attempts,
   - monitor denied-access rates and abnormal room-entry patterns,
   - externalize room naming/signing strategy to backend service to avoid predictable meeting IDs.
+
+## Notification architecture (MVP)
+
+- Core service: `lib/services/notification.service.ts`.
+- Responsibility: build safe appointment notification messages, dispatch via active channel (email for MVP), and persist every event in the Notification table/repository.
+- Current channel behavior:
+  - `EMAIL`: active sender (console-based MVP; can be replaced by Resend adapter).
+  - `SMS`: reserved placeholder (not dispatched yet).
+  - `WHATSAPP`: reserved placeholder (not dispatched yet).
+- Implemented service methods:
+  - `sendAppointmentConfirmationPatient`
+  - `sendAppointmentConfirmationPractitioner`
+  - `sendAppointmentCancellation`
+  - `sendVideoConsultationLink`
+  - `sendAppointmentReminder24h`
+  - `sendAppointmentReminder2h`
+
+### Future notes: Email / SMS / WhatsApp
+
+- Email production path: replace console sender with provider adapter (Resend, SES, etc.) and add retry policy + dead-letter handling.
+- SMS path: add dedicated SMS adapter interface and template truncation rules for short-message constraints.
+- WhatsApp Cloud API path: add approved template mapping, webhook delivery status updates, and conversation window handling.
+- Keep all channels behind the same service contract to avoid route/controller coupling.
+
+### Privacy notes for notifications
+
+- Do not expose diagnosis, symptoms, or other sensitive medical details in message content.
+- Keep notifications focused on operational logistics (date/time/type/link).
+- Avoid embedding identifiers that could be abused if intercepted.
+- Persist only minimum metadata needed for auditability and support.
+
+## Setup, test, and deployment instructions (notifications)
+
+### Setup
+
+1. Ensure base project setup is done (`npm install`, `.env.local`).
+2. Configure optional email variables for real provider integration later:
+   - `EMAIL_FROM`
+   - `RESEND_API_KEY`
+
+### Test
+
+- Run static quality gate:
+  - `npm run check`
+- Add unit tests around `NotificationService` method outputs and repository writes before enabling external provider sending.
+
+### Deployment
+
+- Keep provider credentials in secret manager only (never in source).
+- Add provider health checks and failure alerts before enabling non-console transport.
+- Enforce audit logging around notification send failures and retries.
+- Roll out SMS/WhatsApp by feature flags per environment.
