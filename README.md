@@ -502,3 +502,51 @@ The page reads all required parameters from the URL, renders practitioner/reason
 - Add provider health checks and failure alerts before enabling non-console transport.
 - Enforce audit logging around notification send failures and retries.
 - Roll out SMS/WhatsApp by feature flags per environment.
+
+## Production security checklist
+
+- Enforce Zod validation on all API payloads/queries/route params.
+- Use server-side role checks before sensitive business actions.
+- Apply endpoint-specific rate limiting for booking/auth-sensitive actions.
+- Protect consultation access by participant identity + session timing windows.
+- Validate file uploads (size, mime type, extension) before storage.
+- Use centralized error handling with request IDs and safe error responses.
+- Never leak stack traces or secrets in HTTP responses.
+- Render a dedicated access-denied route for unauthorized navigation.
+
+## Access control summary
+
+- API access control relies on authenticated request headers (`x-user-id`, `x-user-role`) and explicit role whitelists.
+- Booking creation is restricted to `PATIENT` role only.
+- Consultation pages are restricted to appointment participants (patient/practitioner) and valid video sessions.
+- Unauthorized users are redirected to `/access-denied`.
+
+## Production hardening notes
+
+- Current in-memory rate limiting is safe for single-instance deployments; move to Redis/Upstash for distributed environments.
+- Keep `x-request-id` propagation enabled across proxies and app servers for incident tracing.
+- Route all structured server error logs to your log pipeline (Datadog/ELK/CloudWatch).
+- Add WAF + bot protection in front of public APIs.
+- Ensure file uploads pass antivirus scanning in production storage workflows.
+- Keep strict secret management and periodic credential rotation.
+
+## Setup, test, and deployment instructions
+
+### Setup
+
+1. Install dependencies with `npm install`.
+2. Create environment file (`cp .env.example .env.local`).
+3. Start local server (`npm run dev`).
+
+### Testing and checks
+
+- Run `npm run lint` for lint checks.
+- Run `npm run typecheck` for TypeScript checks.
+- Run `npm run check` before commit/push.
+
+### Deployment
+
+1. Set all production env vars in your deployment platform.
+2. Run pre-deploy checks (`npm run check`).
+3. Build (`npm run build`) and deploy (`npm run start` or platform runtime).
+4. Verify rate-limit behavior, access control paths, and logging in production monitoring.
