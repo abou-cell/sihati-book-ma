@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-type UserRole = "PATIENT" | "PRACTITIONER" | "ADMIN";
+import { getCurrentUserFromServer } from "@/lib/auth/current-user";
 type ConsultationType = "IN_PERSON" | "VIDEO";
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
@@ -16,16 +15,12 @@ function formatDateTime(value: string | Date) { return new Intl.DateTimeFormat("
 
 export default async function ConsultationPage({ params }: { params: Promise<{ appointmentId: string }> }) {
   const { appointmentId } = await params;
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("x-user-id");
-  const userRole = requestHeaders.get("x-user-role") as UserRole | null;
-
-  if (!userId || !userRole) redirect("/access-denied");
+  const currentUser = await getCurrentUserFromServer();
 
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment) redirect("/access-denied");
 
-  const isParticipant = (userRole === "PATIENT" && userId === appointment.patient.id) || (userRole === "PRACTITIONER" && userId === appointment.practitioner.id);
+  const isParticipant = (currentUser.role === "PATIENT" && currentUser.userId === appointment.patient.id) || (currentUser.role === "PRACTITIONER" && currentUser.userId === appointment.practitioner.id) || currentUser.role === "ADMIN" || currentUser.role === "CLINIC_ADMIN";
   if (!isParticipant || appointment.consultationType !== "VIDEO" || appointment.status === "CANCELLED") redirect("/access-denied");
 
   const now = new Date();

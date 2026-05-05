@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { demoSessionHeaderNames } from "@/lib/auth/session";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
 
 const practitioners = [
@@ -54,8 +55,8 @@ export default function NewAppointmentPage() {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user-role": "PATIENT",
-        "x-user-id": "patient_demo_1",
+        [demoSessionHeaderNames.role]: "PATIENT",
+        [demoSessionHeaderNames.userId]: "patient_demo_1",
       },
       body: JSON.stringify({ practitionerId, reasonId, consultationType, startTime }),
     });

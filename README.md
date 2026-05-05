@@ -410,7 +410,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 ### Route and behavior
 
 - Route: `/consultation/[appointmentId]`.
-- Page validates request authentication through `x-user-id` and `x-user-role` headers.
+- Page validates request authentication through centralized server auth helpers (`lib/auth/current-user.ts`).
 - Access is restricted to the appointment patient or practitioner only.
 - Only `VIDEO` appointments can be opened on this route.
 - `CANCELLED` appointments are explicitly blocked.
@@ -429,11 +429,11 @@ The page reads all required parameters from the URL, renders practitioner/reason
 
 ### Security notes for video consultations
 
-- Authentication is mandatory: missing identity headers result in access denial.
+- Authentication is mandatory: missing/invalid session identity results in access denial.
 - Authorization is mandatory: users not assigned to the appointment are denied.
 - Appointment integrity checks enforce consultation type and cancellation status before any room exposure.
 - Jitsi embed uses `referrerPolicy="no-referrer"` and a constrained iframe `allow` policy for camera/mic/fullscreen and screen-share capabilities.
-- For production, replace header-based mock identity with server-side session middleware and signed token verification.
+- For production, keep the same auth helper interfaces and replace the session reader with signed cookie/session or JWT verification.
 
 ### Setup, testing, and deployment guidance (video module)
 
@@ -516,7 +516,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 
 ## Access control summary
 
-- API access control relies on authenticated request headers (`x-user-id`, `x-user-role`) and explicit role whitelists.
+- API access control relies on centralized current-user helpers and explicit role whitelists.
 - Booking creation is restricted to `PATIENT` role only.
 - Consultation pages are restricted to appointment participants (patient/practitioner) and valid video sessions.
 - Unauthorized users are redirected to `/access-denied`.
@@ -584,3 +584,15 @@ A full repository integration audit was completed on **2026-05-05**.
 - Availability fallback (used only when `DATABASE_URL` is not configured).
 
 For detailed status and migration notes, see `docs/database-integration.md`.
+
+
+## Authentication architecture
+
+- Central auth modules:
+  - `lib/auth/session.ts`
+  - `lib/auth/permissions.ts`
+  - `lib/auth/current-user.ts`
+- Demo headers remain supported for MVP, but are isolated to `lib/auth/session.ts` only.
+- APIs enforce role checks server-side and return consistent auth errors.
+- Server pages enforce role checks server-side and redirect unauthorized users to `/access-denied`.
+- See `docs/authentication.md` for full migration path to production cookie/session/JWT auth.

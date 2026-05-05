@@ -1,20 +1,12 @@
-import { AppError } from "@/lib/security/errors";
+import type { UserRole } from "@/lib/auth/permissions";
+import { getCurrentUserFromRequest, requireRolesForApi } from "@/lib/auth/current-user";
 
-export type UserRole = "PATIENT" | "PRACTITIONER" | "ADMIN";
+export type { UserRole };
 
 export function getUserContext(request: Request) {
-  const userId = request.headers.get("x-user-id");
-  const role = request.headers.get("x-user-role") as UserRole | null;
-
-  if (!userId || !role) {
-    throw new AppError("UNAUTHENTICATED", 401, "Authentication required");
-  }
-
-  return { userId, role };
+  return getCurrentUserFromRequest(request);
 }
 
 export function requireRole(currentRole: UserRole, allowed: UserRole[]) {
-  if (!allowed.includes(currentRole)) {
-    throw new AppError("ACCESS_DENIED", 403, "Access denied");
-  }
+  requireRolesForApi(currentRole, allowed);
 }

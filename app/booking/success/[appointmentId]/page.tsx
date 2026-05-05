@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { forbidden, notFound } from "next/navigation";
-import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
+
+import { getCurrentUserFromServer } from "@/lib/auth/current-user";
 
 type ConsultationType = "IN_PERSON" | "VIDEO";
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
@@ -61,19 +62,14 @@ export default async function BookingSuccessPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const requestHeaders = await headers();
-  const userRole = requestHeaders.get("x-user-role");
-  const userId = requestHeaders.get("x-user-id");
+  const currentUser = await getCurrentUserFromServer();
 
-  if (!userRole || !userId) {
-    forbidden();
-  }
+  const isAllowedPatient = currentUser.role === "PATIENT" && currentUser.userId === appointment.patientId;
+  const isAllowedPractitioner = currentUser.role === "PRACTITIONER" && currentUser.userId === appointment.practitionerId;
+  const isAllowedAdmin = currentUser.role === "ADMIN" || currentUser.role === "CLINIC_ADMIN";
 
-  const isAllowedPatient = userRole === "PATIENT" && userId === appointment.patientId;
-  const isAllowedPractitioner = userRole === "PRACTITIONER" && userId === appointment.practitionerId;
-
-  if (!isAllowedPatient && !isAllowedPractitioner) {
-    forbidden();
+  if (!isAllowedPatient && !isAllowedPractitioner && !isAllowedAdmin) {
+    redirect("/access-denied");
   }
 
   return (
