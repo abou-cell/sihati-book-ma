@@ -120,3 +120,22 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 - Validate all incoming API query input and enforce bounded pagination.
 
 For deeper configuration details, see `docs/configuration.md`.
+
+## Search page notes
+
+- Route: `/search` (`app/(public)/search/page.tsx`).
+- The page is client-rendered and keeps filter state synchronized with URL query parameters for shareable links and browser navigation consistency.
+- Data source: `GET /api/practitioners/search`.
+- Includes loading, empty, and error result states plus previous/next pagination controls.
+- The **Book appointment** CTA currently links to `/practitioners/[slug]` profile pages (booking flow is intentionally not implemented yet).
+
+### Filter behavior
+
+- `q`: text search across practitioner name, specialty, clinic, and city.
+- `specialty`: exact specialty filter (case-insensitive on backend).
+- `city`: exact city filter (case-insensitive on backend).
+- `video=true`: shows only practitioners that support video consultation.
+- `availableToday=true`: shows only practitioners with a next available slot on current date.
+- `minPrice` / `maxPrice`: bounded integer filtering for in-person consultation fee.
+- `sort`: supports `nextAvailable`, `priceAsc`, and `priceDesc`.
+- `page`: updated when paginating; reset to `1` when filters change.
