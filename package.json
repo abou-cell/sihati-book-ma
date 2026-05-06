@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
-    "test": "npm run check"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@prisma/client": "^6.8.0",
@@ -31,7 +32,8 @@
     "postcss": "^8.5.14",
     "prisma": "^6.8.0",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=20.11.0"

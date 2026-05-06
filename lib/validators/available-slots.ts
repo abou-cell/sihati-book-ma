@@ -4,13 +4,17 @@ import { consultationTypeSchema } from "@/lib/validators/availability";
 
 const MAX_RANGE_DAYS = 30;
 
+const booleanFromQuery = z
+  .enum(["true", "false"])
+  .transform((value) => value === "true");
+
 export const availableSlotsQuerySchema = z
   .object({
     reasonId: z.string().min(1, "reasonId is required"),
     startDate: z.string().date("startDate must be YYYY-MM-DD"),
     endDate: z.string().date("endDate must be YYYY-MM-DD"),
     consultationType: consultationTypeSchema,
-    isPublic: z.coerce.boolean().optional().default(true),
+    isPublic: booleanFromQuery.optional().default(true),
   })
   .superRefine((value, ctx) => {
     const start = new Date(`${value.startDate}T00:00:00.000Z`);
