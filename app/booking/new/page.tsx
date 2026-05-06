@@ -62,7 +62,7 @@ function NewAppointmentPageContent() {
     });
 
     const payload = await response.json();
-    setResult(response.ok ? `Created appointment: ${payload.data.appointmentId}` : payload.message ?? "Creation failed");
+    setResult(response.ok ? `Created appointment: ${payload.data.appointmentId}` : payload.error?.message ?? "Creation failed");
     setLoading(false);
   };
 

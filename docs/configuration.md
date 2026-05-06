@@ -21,7 +21,7 @@ Environment validation is implemented in `lib/env.ts` using Zod:
 - Public variables are validated with a dedicated public schema.
 - Server variables are validated with a separate server schema.
 - Production boot enforces all future-critical server variables.
-- Development mode allows future-only variables to be unset to avoid blocking local work.
+- Development mode allows future-only variables to be unset to avoid blocking local work. Production API routes that would otherwise fall back to mock data now fail fast when required persistent services are missing.
 
 App-level config is exposed through `lib/config/app.ts` for safe imports in server modules.
 
@@ -42,7 +42,7 @@ App-level config is exposed through `lib/config/app.ts` for safe imports in serv
 - Configure all listed server variables in your deployment platform secret manager.
 - Do not rely on `.env` files committed in git for production.
 - Rotate secrets regularly and immediately on suspected leakage.
-- Enforce CI checks (`npm run lint`, `npm run typecheck`) before deployment.
+- Enforce CI checks (`npm run lint`, `npm run typecheck`, `npm run build`, `npm run check`) before deployment.
 
 ## Security notes
 

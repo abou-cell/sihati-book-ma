@@ -42,6 +42,7 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 - `npm run lint` — run ESLint.
 - `npm run typecheck` — run TypeScript checks.
 - `npm run check` — run lint and typecheck (recommended pre-commit/pre-deploy).
+- `npm test` — currently aliases `npm run check` until behavioral tests are added.
 
 ## Practitioner search API
 
@@ -178,7 +179,7 @@ For deeper configuration details, see `docs/configuration.md`.
 - The page is client-rendered and keeps filter state synchronized with URL query parameters for shareable links and browser navigation consistency.
 - Data source: `GET /api/practitioners/search`.
 - Includes loading, empty, and error result states plus previous/next pagination controls.
-- The **Book appointment** CTA currently links to `/practitioners/[slug]` profile pages (booking flow is intentionally not implemented yet).
+- The **Book appointment** CTA links to `/practitioners/[slug]` profile pages, whose MVP booking CTAs now use the `/booking/new` URL contract with placeholder reason/start-time values.
 
 ### Filter behavior
 
@@ -469,7 +470,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 
 ### Future notes: Email / SMS / WhatsApp
 
-- Email production path: replace console sender with provider adapter (Resend, SES, etc.) and add retry policy + dead-letter handling.
+- Email production path: replace the redacted development-only console sender with a provider adapter (Resend, SES, etc.) and add retry policy + dead-letter handling.
 - SMS path: add dedicated SMS adapter interface and template truncation rules for short-message constraints.
 - WhatsApp Cloud API path: add approved template mapping, webhook delivery status updates, and conversation window handling.
 - Keep all channels behind the same service contract to avoid route/controller coupling.
@@ -564,7 +565,7 @@ A full repository integration audit was completed on **2026-05-05**.
 - Introduced typed repositories under `lib/repositories/` for practitioner, availability, appointment, notification, and user reads/writes.
 - `POST /api/appointments` is now Prisma-backed through repository abstraction.
 - `GET /api/practitioners/[id]/available-slots` is Prisma-backed when `DATABASE_URL` is configured, with isolated mock fallback under `lib/repositories/mock/availability.repository.ts`.
-- Remaining mock areas: demo data in frontend pages (`app/dashboard/patient/page.tsx`, `app/consultation/[appointmentId]/page.tsx`, `app/booking/success/[appointmentId]/page.tsx`) and practitioner search service seed data.
+- Remaining MVP placeholder areas: demo data in frontend pages (`app/dashboard/patient/page.tsx`, `app/consultation/[appointmentId]/page.tsx`, `app/booking/success/[appointmentId]/page.tsx`) and local-only mock repositories for practitioner search and availability when `DATABASE_URL` is absent outside production.
 
 ## Repository layer and Prisma integration status
 
@@ -592,10 +593,22 @@ For detailed status and migration notes, see `docs/database-integration.md`.
   - `lib/auth/session.ts`
   - `lib/auth/permissions.ts`
   - `lib/auth/current-user.ts`
-- Demo headers remain supported for MVP, but are isolated to `lib/auth/session.ts` only.
+- Demo headers remain supported for local MVP development, but are isolated to `lib/auth/session.ts` only and are disabled when `NODE_ENV=production`.
 - APIs enforce role checks server-side and return consistent auth errors.
 - Server pages enforce role checks server-side and redirect unauthorized users to `/access-denied`.
 - See `docs/authentication.md` for full migration path to production cookie/session/JWT auth.
+
+
+## MVP placeholder and production fail-fast policy
+
+The application intentionally keeps a few MVP placeholders isolated until their production integrations are implemented:
+
+- Demo-header authentication is local-development only and is rejected in production.
+- Practitioner search and available-slot mock repositories are local-development fallbacks only; production requires `DATABASE_URL`.
+- Medical documents, reviews, Stripe checkout, and Stripe webhook routes return explicit `501` errors instead of success-like placeholder payloads.
+- Video consultation, booking success, and dashboard sample data remain documented MVP placeholders and must be replaced with database-backed, resource-authorized flows before release.
+
+These safeguards prevent mock data and unsafe provider placeholders from being mistaken for production-ready behavior.
 
 ## Project roadmap
 

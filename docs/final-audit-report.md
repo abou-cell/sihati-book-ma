@@ -65,7 +65,7 @@ Rationale: the project has a solid skeleton and typed validation patterns, but p
 ### Risks
 
 - Several pages rely on seeded client-side arrays instead of API/database data.
-- The home page search form does not submit to the search page.
+- The home page search form now submits to `/search` with the expected `q` and `city` query parameters.
 - Practitioner profile booking CTAs generate query parameters that do not match the booking page's required schema.
 - Availability management validates locally but does not persist.
 - Patient cancellation updates local component state only.
@@ -106,7 +106,7 @@ This is not real authentication. Any client capable of setting headers can imper
 
 ### Current implementation
 
-- TypeScript roles include `PATIENT`, `PRACTITIONER`, `ADMIN`, and `CLINIC_ADMIN`.
+- TypeScript and Prisma roles are now aligned to `PATIENT`, `PRACTITIONER`, and `ADMIN` after the critical stabilization pass.
 - Prisma `UserRole` enum only includes `PATIENT`, `PRACTITIONER`, and `ADMIN`.
 - Role helpers support simple allow-list checks.
 
@@ -160,7 +160,7 @@ Mock data is useful for development but must not silently activate in production
 
 ### Risks
 
-- Practitioner profile CTAs pass `practitionerSlug` and `type`, while the booking page requires `practitionerId`, `reasonId`, `consultationType`, and `startTime`.
+- Practitioner profile CTAs now pass the booking page URL contract (`practitionerId`, `reasonId`, `consultationType`, and `startTime`) for the MVP placeholder reason/start-time flow.
 - Slot availability is not revalidated against generated availability rules during appointment creation; it checks only practitioner/reason/past/conflict.
 - Video appointments are set to `PENDING`, but payment checkout is only a placeholder.
 - Booking page uses demo patient headers from the browser.
@@ -207,7 +207,7 @@ Mock data is useful for development but must not silently activate in production
 
 ### Risks
 
-- Default sender logs notification content to console.
+- Default sender no longer logs recipient addresses or message bodies; real provider delivery is still not implemented.
 - Resend/API provider integration is not implemented despite environment variables.
 - SMS/WhatsApp are placeholders.
 - Reminder scheduling/worker queue is not implemented.
@@ -244,7 +244,7 @@ Mock data is useful for development but must not silently activate in production
 
 ### Risks
 
-- `.env.example` is referenced in README but is not present in the repository.
+- `.env.example` is present and matches the current environment validation schema for MVP setup.
 - `AUTH_SECRET`, Stripe, and email variables are validated but not wired to real production integrations.
 - Production variable requirements can make build-time behavior brittle if build and runtime environments differ.
 - No AWS parameter/secrets mapping is documented.
@@ -506,14 +506,14 @@ Missing AWS preparation:
 
 - Spoofable header sessions.
 - Missing CSRF controls.
-- Placeholder Stripe webhook.
-- Placeholder payment checkout.
+- Stripe webhook route is now explicitly disabled with `501` until signature verification/event handling is implemented.
+- Payment checkout route is now explicitly disabled with `501` until Stripe checkout is implemented.
 - Predictable video room names.
-- Console logging of notification recipients/messages.
+- Console notification placeholder logs are redacted and development-only; real provider delivery is still missing.
 - No distributed rate limiting.
 - No production CSP/security header policy.
 - No audit logs for admin, booking, document, or video actions.
-- Public demo document/review endpoints without authorization.
+- Medical document and review placeholder routes now return explicit `501` responses instead of demo production-looking data; medical documents also require an authenticated allowed role before returning the limitation.
 
 ## Authentication/session risks
 
@@ -523,7 +523,7 @@ Missing AWS preparation:
 - No session persistence/revocation.
 - No refresh token strategy.
 - No server-side role lookup.
-- Role mismatch: TypeScript includes `CLINIC_ADMIN`; Prisma does not.
+- Role drift risk remains for future role additions, but the current TypeScript role list now matches Prisma.
 
 ## Database risks
 
@@ -537,8 +537,8 @@ Missing AWS preparation:
 
 ## API risks
 
-- Placeholders return success-like payloads for payments and webhooks.
-- Medical documents/reviews lack auth and persistence.
+- Placeholder medical document, review, payment, and webhook routes now return explicit `501` MVP limitation errors instead of production-looking success payloads.
+- Medical documents require demo-authenticated allowed roles but still lack persistence; reviews remain an explicit non-persisted MVP limitation.
 - No API contract tests.
 - No idempotency for appointment creation/payment webhooks.
 - No CSRF protection for browser-originating mutations.
@@ -593,6 +593,22 @@ Missing AWS preparation:
 12. Complete privacy/security documentation and release checklist.
 
 
+## Critical stabilization fixes applied
+
+This stabilization pass focused only on critical and high-priority technical issues that could mislead operators or block safe local execution, while avoiding unrelated feature work and UI restyling:
+
+- Aligned application role definitions with the Prisma `UserRole` enum by removing the unsupported `CLINIC_ADMIN` role from TypeScript authorization checks and related protected routes.
+- Disabled demo-header authentication in `NODE_ENV=production` so spoofable `x-user-id` / `x-user-role` headers remain local-development-only until a real session provider is implemented.
+- Changed practitioner search and available-slot repository selection to fail fast in production when `DATABASE_URL` is missing, instead of silently serving mock repository data.
+- Replaced success-like placeholder responses for medical documents, reviews, Stripe checkout, and Stripe webhooks with explicit `501` MVP limitation errors; the medical-document route now also requires an authenticated allowed role. Home/profile booking route mismatches were also normalized to the current search and booking URL contracts.
+- Added baseline security headers through `next.config.ts`, including content type protection, referrer policy, frame-ancestor denial, a scoped CSP, and permissions policy allowances needed by the existing Jitsi iframe.
+- Reduced production error-log detail by omitting stack traces when `NODE_ENV=production` and redacted development-only notification placeholder logs so they no longer print recipient addresses or message bodies.
+- Mapped appointment domain errors to more precise HTTP statuses instead of returning every appointment business error as `409`.
+- Removed remaining `any` usage from Prisma transaction and availability appointment mapping code covered by this pass.
+- Updated README and authentication/configuration documentation to clearly describe local-only demo auth, production fail-fast behavior, explicit MVP placeholders, and the current `npm test` alias.
+
+Remaining blockers after this pass are larger implementation tasks intentionally excluded from this stabilization scope: real authentication/session storage, CSRF, availability CRUD persistence, full Stripe integration, database migrations/constraints, database-backed dashboards/video rooms, Docker/AWS assets, and behavioral test coverage.
+
 ## Build and dependency stabilization applied
 
 The follow-up stabilization pass applied safe, minimal production-oriented fixes without changing UI styling or business logic:
@@ -627,17 +643,17 @@ Score breakdown:
 ## Clear checklist for the next stabilization task
 
 - [ ] Decide production auth approach and implement it without UI restyling.
-- [ ] Remove browser-controlled demo auth headers from production paths.
-- [ ] Align `UserRole` between Prisma and TypeScript.
+- [x] Remove browser-controlled demo auth headers from production paths.
+- [x] Align `UserRole` between Prisma and TypeScript.
 - [x] Fix `npm run build` by resolving the missing `autoprefixer` dependency/configuration issue.
 - [x] Fix typed-route failures for search URL replacement and missing dashboard appointment links.
 - [x] Address `npm audit` moderate vulnerability findings through safe dependency updates.
-- [ ] Add `.env.example` matching `lib/env.ts` and README.
+- [x] Add `.env.example` matching `lib/env.ts` and README.
 - [ ] Add migration files and a seed workflow.
 - [ ] Add appointment slot uniqueness/race-condition protection.
 - [ ] Add availability CRUD API routes and persist dashboard changes.
-- [ ] Connect practitioner profile links to real slot selection and booking parameters.
-- [ ] Replace placeholder payments and webhook behavior with verified Stripe integration or explicitly disable payment routes.
+- [x] Connect practitioner profile links to the current booking URL contract; persisted slot selection remains a future task.
+- [x] Replace placeholder payments and webhook behavior with verified Stripe integration or explicitly disable payment routes.
 - [ ] Replace video demo data with database-backed appointments and signed room access.
 - [ ] Add unit tests for validators/services.
 - [ ] Add API route tests for auth, validation, and error handling.

@@ -5,6 +5,13 @@ type Practitioner = { id: string; isVerified: boolean; name: string; specialty: 
 type ConsultationReason = { id: string; practitionerId: string; label: string; inPersonPrice: number; videoPrice: number | null; isVideoEnabled: boolean; slotDurationMinutes: number };
 type Appointment = { id: string; patientId: string; practitionerId: string; reasonId: string; consultationType: "IN_PERSON" | "VIDEO"; startTime: string; endTime: string; status: AppointmentStatus };
 type Notification = { id: string; appointmentId: string; channel: "PUSH" | "EMAIL"; status: "PENDING" };
+type PersistedAppointment = Omit<Appointment, "startTime" | "endTime"> & { startTime: Date; endTime: Date };
+type AppointmentTransactionClient = {
+  appointment: {
+    findFirst(input: { where: { practitionerId: string; startTime: Date; status: { not: "CANCELLED" } } }): Promise<PersistedAppointment | null>;
+    create(input: { data: Omit<Appointment, "startTime" | "endTime"> & { startTime: Date; endTime: Date } }): Promise<PersistedAppointment>;
+  };
+};
 
 export interface AppointmentRepository {
   getPractitionerById(id: string): Promise<Practitioner | null>;
@@ -27,7 +34,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
   }
   async createAppointment(input: Omit<Appointment, "id">): Promise<Appointment> {
     try {
-      const created = await prisma.$transaction(async (tx: any) => {
+      const created = await prisma.$transaction(async (tx: AppointmentTransactionClient) => {
         const conflict = await tx.appointment.findFirst({ where: { practitionerId: input.practitionerId, startTime: new Date(input.startTime), status: { not: "CANCELLED" } } });
         if (conflict) throw new AppointmentError("SLOT_NOT_AVAILABLE", "Selected slot is already booked");
         return tx.appointment.create({ data: { id: crypto.randomUUID(), ...input, startTime: new Date(input.startTime), endTime: new Date(input.endTime) } });

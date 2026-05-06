@@ -20,7 +20,7 @@ export default async function ConsultationPage({ params }: { params: Promise<{ a
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment) redirect("/access-denied");
 
-  const isParticipant = (currentUser.role === "PATIENT" && currentUser.userId === appointment.patient.id) || (currentUser.role === "PRACTITIONER" && currentUser.userId === appointment.practitioner.id) || currentUser.role === "ADMIN" || currentUser.role === "CLINIC_ADMIN";
+  const isParticipant = (currentUser.role === "PATIENT" && currentUser.userId === appointment.patient.id) || (currentUser.role === "PRACTITIONER" && currentUser.userId === appointment.practitioner.id) || currentUser.role === "ADMIN";
   if (!isParticipant || appointment.consultationType !== "VIDEO" || appointment.status === "CANCELLED") redirect("/access-denied");
 
   const now = new Date();

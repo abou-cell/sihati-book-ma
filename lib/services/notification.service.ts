@@ -49,10 +49,14 @@ type EmailSender = {
 
 class ConsoleEmailSender implements EmailSender {
   async sendEmail(input: { to: string; subject: string; text: string }) {
-    console.log("[NotificationService][EMAIL]", {
-      to: input.to,
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
+
+    console.log("[NotificationService][EMAIL][MVP_PLACEHOLDER]", {
+      recipientConfigured: Boolean(input.to),
       subject: input.subject,
-      text: input.text,
+      messageLength: input.text.length,
     });
   }
 }
@@ -110,8 +114,8 @@ export class NotificationService {
       }
 
       // Future channels intentionally not active in MVP.
-      if (channel === "SMS" || channel === "WHATSAPP") {
-        console.log(`[NotificationService][${channel}] Placeholder sender not implemented yet.`);
+      if ((channel === "SMS" || channel === "WHATSAPP") && process.env.NODE_ENV !== "production") {
+        console.log(`[NotificationService][${channel}][MVP_PLACEHOLDER] Sender is not configured.`);
       }
 
       status = "SENT";

@@ -21,7 +21,11 @@ export function logError(error: unknown, context: { path: string; method: string
     timestamp: new Date().toISOString(),
     error:
       error instanceof Error
-        ? { name: error.name, message: error.message, stack: error.stack }
+        ? {
+            name: error.name,
+            message: error.message,
+            ...(process.env.NODE_ENV === "production" ? {} : { stack: error.stack }),
+          }
         : { message: "Unknown error", raw: String(error) },
   };
 

@@ -66,7 +66,7 @@ export default async function BookingSuccessPage({ params }: { params: Promise<{
 
   const isAllowedPatient = currentUser.role === "PATIENT" && currentUser.userId === appointment.patientId;
   const isAllowedPractitioner = currentUser.role === "PRACTITIONER" && currentUser.userId === appointment.practitionerId;
-  const isAllowedAdmin = currentUser.role === "ADMIN" || currentUser.role === "CLINIC_ADMIN";
+  const isAllowedAdmin = currentUser.role === "ADMIN";
 
   if (!isAllowedPatient && !isAllowedPractitioner && !isAllowedAdmin) {
     redirect("/access-denied");
