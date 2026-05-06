@@ -2,7 +2,7 @@ import { requireRolesForPage } from "@/lib/auth/current-user";
 import Link from "next/link";
 
 export default async function PractitionerDashboardPage() {
-  await requireRolesForPage(["PRACTITIONER", "ADMIN", "CLINIC_ADMIN"]);
+  await requireRolesForPage(["PRACTITIONER", "ADMIN"]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">

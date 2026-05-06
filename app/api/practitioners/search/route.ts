@@ -1,19 +1,29 @@
 import { MockPractitionerSearchRepository } from "@/lib/repositories/mock/practitioner-search.repository";
 import { PrismaPractitionerSearchRepository } from "@/lib/repositories/practitioner.repository";
-import { safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
+import { AppError, safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
 import { PractitionerSearchService } from "@/lib/services/practitioner-search.service";
 import { practitionerSearchQuerySchema } from "@/lib/validators/practitioner-search";
 
-const repository = process.env.DATABASE_URL
-  ? new PrismaPractitionerSearchRepository()
-  : new MockPractitionerSearchRepository();
+function createSearchService(): PractitionerSearchService {
+  if (process.env.DATABASE_URL) {
+    return new PractitionerSearchService(new PrismaPractitionerSearchRepository());
+  }
 
-const service = new PractitionerSearchService(repository);
+  if (process.env.NODE_ENV === "production") {
+    throw new AppError(
+      "DATABASE_NOT_CONFIGURED",
+      503,
+      "Practitioner search requires DATABASE_URL in production.",
+    );
+  }
+
+  return new PractitionerSearchService(new MockPractitionerSearchRepository());
+}
 
 export const GET = withErrorHandling(async (request: Request) => {
   const rawParams = Object.fromEntries(new URL(request.url).searchParams.entries());
   const query = practitionerSearchQuerySchema.parse(rawParams);
-  const result = await service.search(query);
+  const result = await createSearchService().search(query);
 
   return safeJsonResponse(result, 200);
 });

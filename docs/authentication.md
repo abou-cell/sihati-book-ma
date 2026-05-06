@@ -9,14 +9,13 @@ Sihati currently uses a centralized auth/session abstraction for identity and ro
 - `lib/auth/current-user.ts`: high-level helpers for API and server page authorization.
 - `lib/security/access-control.ts`: compatibility wrapper using centralized auth helpers.
 
-The only place that reads demo headers (`x-user-id`, `x-user-role`) is `lib/auth/session.ts`.
+The only place that reads demo headers (`x-user-id`, `x-user-role`) is `lib/auth/session.ts`. Demo-header auth is disabled when `NODE_ENV=production`; production auth must replace this reader with trusted cookie/session or JWT verification before release.
 
 ## Supported roles
 
 - `PATIENT`
 - `PRACTITIONER`
 - `ADMIN`
-- `CLINIC_ADMIN`
 
 All role checks must run server-side using `requireRolesForApi` / `requireRolesForPage` or compatible wrappers.
 

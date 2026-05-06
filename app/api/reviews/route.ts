@@ -1,7 +1,9 @@
-import { safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
+import { AppError, withErrorHandling } from "@/lib/security/errors";
 
-const demoReviews = [
-  { id: "r_1", practitionerId: "p_1", rating: 5, comment: "Excellent doctor" },
-];
-
-export const GET = withErrorHandling(async () => safeJsonResponse({ data: demoReviews }));
+export const GET = withErrorHandling(async () => {
+  throw new AppError(
+    "REVIEWS_NOT_IMPLEMENTED",
+    501,
+    "Practitioner reviews are not backed by persisted production data in this MVP build.",
+  );
+});

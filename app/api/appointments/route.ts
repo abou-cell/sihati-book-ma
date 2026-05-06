@@ -7,6 +7,15 @@ import { createAppointmentSchema } from "@/lib/validators/appointment";
 
 const service = new AppointmentService(new PrismaAppointmentRepository());
 
+const appointmentErrorStatus: Record<string, number> = {
+  PRACTITIONER_NOT_BOOKABLE: 404,
+  INVALID_REASON: 400,
+  VIDEO_NOT_ALLOWED: 400,
+  INVALID_START_TIME: 400,
+  SLOT_NOT_AVAILABLE: 409,
+  APPOINTMENT_CREATE_FAILED: 500,
+};
+
 export const POST = withErrorHandling(async (request: Request) => {
   const { userId, role } = getUserContext(request);
   requireRole(role, ["PATIENT"]);
@@ -21,7 +30,7 @@ export const POST = withErrorHandling(async (request: Request) => {
     return safeJsonResponse(result, 201);
   } catch (error) {
     if (error instanceof AppointmentError) {
-      throw new AppError(error.code, 409, error.message);
+      throw new AppError(error.code, appointmentErrorStatus[error.code] ?? 409, error.message);
     }
 
     throw error;

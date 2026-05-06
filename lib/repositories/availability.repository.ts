@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import type { Appointment, ConsultationReason } from "@/lib/services/availability.service";
 import type { AvailabilityDateRange, AvailabilityRule, BlockedDate } from "@/lib/validators/availability";
 
+type AppointmentRow = { id: string; practitionerId: string; consultationType: "IN_PERSON" | "VIDEO"; startTime: Date; endTime: Date; status: "PENDING" | "CONFIRMED" | "CANCELLED" };
+
 export interface AvailabilityRepository {
   getRulesByPractitioner(practitionerId: string): Promise<AvailabilityRule[]>;
   getBlockedDatesByPractitioner(practitionerId: string, dateRange: AvailabilityDateRange): Promise<BlockedDate[]>;
@@ -22,12 +24,12 @@ export class PrismaAvailabilityRepository implements AvailabilityRepository {
     const from = new Date(`${dateRange.from}T00:00:00.000Z`);
     const to = new Date(`${dateRange.to}T23:59:59.999Z`);
 
-    const appointments = await prisma.appointment.findMany({
+    const appointments: AppointmentRow[] = await prisma.appointment.findMany({
       where: { practitionerId, startTime: { gte: from, lte: to } },
       select: { id: true, practitionerId: true, consultationType: true, startTime: true, endTime: true, status: true },
     });
 
-    return appointments.map((item: any) => ({ ...item, startsAt: item.startTime.toISOString(), endsAt: item.endTime.toISOString() }));
+    return appointments.map((item) => ({ ...item, startsAt: item.startTime.toISOString(), endsAt: item.endTime.toISOString() }));
   }
 
   async getReasonById(reasonId: string): Promise<ConsultationReason | null> {

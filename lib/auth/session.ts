@@ -9,28 +9,33 @@ export type AuthSession = {
 const DEMO_USER_ID_HEADER = "x-user-id";
 const DEMO_USER_ROLE_HEADER = "x-user-role";
 
-export function readDemoSessionFromRequest(request: Request): AuthSession | null {
-  const userId = request.headers.get(DEMO_USER_ID_HEADER);
-  const role = request.headers.get(DEMO_USER_ROLE_HEADER);
+function isDemoHeaderAuthEnabled(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
 
-  if (!userId || !isUserRole(role)) {
+function buildDemoSession(userId: string | null, role: string | null): AuthSession | null {
+  if (!isDemoHeaderAuthEnabled() || !userId || !isUserRole(role)) {
     return null;
   }
 
   return { userId, role };
 }
 
+export function readDemoSessionFromRequest(request: Request): AuthSession | null {
+  return buildDemoSession(
+    request.headers.get(DEMO_USER_ID_HEADER),
+    request.headers.get(DEMO_USER_ROLE_HEADER),
+  );
+}
+
 export async function readDemoSessionFromServerHeaders(): Promise<AuthSession | null> {
   const { headers } = await import("next/headers");
   const requestHeaders = await headers();
-  const userId = requestHeaders.get(DEMO_USER_ID_HEADER);
-  const role = requestHeaders.get(DEMO_USER_ROLE_HEADER);
 
-  if (!userId || !isUserRole(role)) {
-    return null;
-  }
-
-  return { userId, role };
+  return buildDemoSession(
+    requestHeaders.get(DEMO_USER_ID_HEADER),
+    requestHeaders.get(DEMO_USER_ROLE_HEADER),
+  );
 }
 
 export const demoSessionHeaderNames = {

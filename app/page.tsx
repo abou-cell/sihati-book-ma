@@ -15,14 +15,14 @@ export default function HomePage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <form className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_auto]">
+        <form action="/search" className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_auto]">
           <Input
-            name="search"
+            name="q"
             placeholder="Search by specialty, practitioner, or clinic"
             aria-label="Search practitioners"
           />
           <Input name="city" placeholder="City" aria-label="City" />
-          <Button type="button" className="w-full md:w-auto">
+          <Button type="submit" className="w-full md:w-auto">
             Find a practitioner
           </Button>
         </form>
