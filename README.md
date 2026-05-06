@@ -42,7 +42,29 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 - `npm run lint` — run ESLint.
 - `npm run typecheck` — run TypeScript checks.
 - `npm run check` — run lint and typecheck (recommended pre-commit/pre-deploy).
-- `npm test` — currently aliases `npm run check` until behavioral tests are added.
+- `npm test` — run the Vitest unit/API test suite once.
+- `npm run test:watch` — run Vitest in watch mode for local development.
+
+## Test foundation and CI gate
+
+Automated behavioral tests are now configured with Vitest. The current foundation covers deterministic unit/API tests for validators, auth/session helpers, role permissions, security error contracts, provider-free services, availability slot generation, and mocked notification delivery.
+
+- Test config: `vitest.config.ts`
+- Test files: `tests/**/*.test.ts`
+- Testing guide: [`docs/testing.md`](docs/testing.md)
+- CI workflow: `.github/workflows/ci.yml`
+
+The CI quality gate runs:
+
+```bash
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+Tests must not require real Stripe, Firebase, SMTP/Resend, Cloudflare credentials, or a production database. Use mocks, in-memory repositories, fake timers, and local fixtures for all provider-facing behavior until dedicated test providers or a test database are explicitly configured.
 
 ## Practitioner search API
 
