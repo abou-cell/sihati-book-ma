@@ -600,3 +600,7 @@ For detailed status and migration notes, see `docs/database-integration.md`.
 ## Project roadmap
 
 - See `docs/completion-roadmap.md` for the current completion and production-readiness plan.
+
+## Final audit report
+
+See [docs/final-audit-report.md](docs/final-audit-report.md) for the final technical audit, production-readiness risks, and recommended stabilization checklist.
