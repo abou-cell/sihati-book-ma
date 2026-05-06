@@ -604,3 +604,34 @@ For detailed status and migration notes, see `docs/database-integration.md`.
 ## Final audit report
 
 See [docs/final-audit-report.md](docs/final-audit-report.md) for the final technical audit, production-readiness risks, and recommended stabilization checklist.
+
+## Build, check, and dependency audit workflow
+
+Use the following commands before production deployment or before opening a release PR:
+
+```bash
+npm install
+npm run lint
+npm run typecheck
+npm run check
+npm run build
+npm audit --audit-level=moderate
+```
+
+`npm run check` intentionally runs lint and TypeScript together. Run `npm run build` as a separate release gate because Next.js generates typed-route artifacts and performs production prerendering checks that are not covered by plain `tsc --noEmit`.
+
+### Dependency audit note
+
+The project currently uses Next.js `16.2.4`. Next still pins a nested PostCSS package, so `package.json` includes an npm `overrides.postcss` entry that resolves PostCSS to the patched direct dependency version used by the app. Keep this override until a future Next.js release removes the vulnerable nested PostCSS pin, then remove the override as part of a normal lockfile update and rerun `npm audit --audit-level=moderate`.
+
+### Production readiness gates
+
+A production candidate should pass all of these gates in CI:
+
+- Lint: `npm run lint`
+- TypeScript: `npm run typecheck`
+- Combined local check: `npm run check`
+- Production build: `npm run build`
+- Dependency audit: `npm audit --audit-level=moderate`
+
+Do not treat a passing build as full production approval. Authentication, persistence, payments, deployment infrastructure, and broader automated tests still require separate hardening work before release.

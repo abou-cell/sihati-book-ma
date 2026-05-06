@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import type { Route } from 'next';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Practitioner } from '@/components/cards/PractitionerCard';
@@ -40,7 +41,7 @@ const toFilters = (params: URLSearchParams): SearchFiltersValue => ({
   sort: (params.get('sort') as SearchFiltersValue['sort']) ?? 'nextAvailable',
 });
 
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -66,7 +67,8 @@ export default function SearchPage() {
     }
 
     params.set('page', String(page));
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextSearchUrl = `${pathname}?${params.toString()}` as Route;
+    router.replace(nextSearchUrl, { scroll: false });
   }, [filters, page, pathname, router]);
 
   useEffect(() => {
@@ -145,5 +147,13 @@ export default function SearchPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

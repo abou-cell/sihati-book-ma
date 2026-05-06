@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { demoSessionHeaderNames } from "@/lib/auth/session";
@@ -17,7 +17,7 @@ const reasons = [
   { id: "reason_procedure", practitionerId: "p_1", label: "In-clinic procedure", inPersonPrice: 600, videoPrice: null },
 ];
 
-export default function NewAppointmentPage() {
+function NewAppointmentPageContent() {
   const searchParams = useSearchParams();
   const [result, setResult] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -80,5 +80,13 @@ export default function NewAppointmentPage() {
         <Link href="/search" className="underline">Back to search</Link>
       </section>
     </main>
+  );
+}
+
+export default function NewAppointmentPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewAppointmentPageContent />
+    </Suspense>
   );
 }
