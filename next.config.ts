@@ -4,9 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
-  experimental: {
-    typedRoutes: true
-  }
+  typedRoutes: true
 };
 
 export default nextConfig;
