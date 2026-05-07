@@ -28,6 +28,7 @@ Security documentation:
 
 - [Security hardening guide](docs/security.md)
 - [Authentication and authorization](docs/authentication.md)
+- [Admin-managed service configuration](docs/service-configuration.md)
 
 Production readiness requirements before release:
 
@@ -36,6 +37,17 @@ Production readiness requirements before release:
 - Keep patient data scoped to the owning patient, assigned practitioner, or admin.
 - Replace in-memory rate limiting with a shared store such as Redis, Upstash, or an edge/WAF limiter.
 - Add integration tests for every protected route and API permission path.
+
+
+## Admin-managed external service configuration
+
+External provider settings are managed through an admin-only configuration foundation. The server stores non-sensitive metadata plainly, encrypts secret bags with `APP_ENCRYPTION_KEY`, returns only masked secret previews to the admin UI, and logs sanitized update attempts. The supported records are Stripe, Cloudflare Stream/WebRTC, Firebase, SMTP, SMS provider, push notifications, cloud storage, Google OAuth, and Facebook OAuth.
+
+- Admin UI: `/admin/service-config`
+- Admin API: `/api/admin/service-config`
+- Documentation: [`docs/service-configuration.md`](docs/service-configuration.md)
+
+This module only manages configuration. Provider flows such as payments, video provisioning, SMS delivery, push delivery, storage operations, and OAuth login remain separate follow-up integrations.
 
 ## Local setup
 

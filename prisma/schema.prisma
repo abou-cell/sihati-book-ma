@@ -146,3 +146,29 @@ model Notification {
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 }
+enum ExternalServiceProvider {
+  STRIPE
+  CLOUDFLARE_STREAM_WEBRTC
+  FIREBASE
+  SMTP
+  SMS_PROVIDER
+  PUSH_NOTIFICATIONS
+  CLOUD_STORAGE
+  GOOGLE_OAUTH
+  FACEBOOK_OAUTH
+}
+
+model ServiceConfiguration {
+  id               String                  @id @default(cuid())
+  provider         ExternalServiceProvider @unique
+  isEnabled        Boolean                 @default(false)
+  displayName      String
+  metadata         Json                    @default("{}")
+  encryptedSecrets Json?
+  secretPreview    Json                    @default("{}")
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  updatedByUserId  String?
+
+  @@index([isEnabled])
+}
