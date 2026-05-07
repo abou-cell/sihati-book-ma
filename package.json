@@ -9,9 +9,10 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck",
+    "check": "npm run lint && npm run typecheck && npm test",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@prisma/client": "^6.8.0",
@@ -26,6 +27,7 @@
     "@types/node": "^22.16.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@vitest/coverage-v8": "^4.1.5",
     "autoprefixer": "^10.5.0",
     "eslint": "^9.28.0",
     "eslint-config-next": "^16.2.4",

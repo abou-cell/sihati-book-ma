@@ -72,9 +72,10 @@ This module only manages configuration. Provider flows such as payments, video p
 - `npm run start` — run production server.
 - `npm run lint` — run ESLint.
 - `npm run typecheck` — run TypeScript checks.
-- `npm run check` — run lint and typecheck (recommended pre-commit/pre-deploy).
+- `npm run check` — run lint, typecheck, and the Vitest suite (recommended pre-commit/pre-deploy).
 - `npm test` — run the Vitest unit/API test suite once.
 - `npm run test:watch` — run Vitest in watch mode for local development.
+- `npm run test:coverage` — run Vitest with V8 coverage reports in `coverage/`.
 
 ## Test foundation and CI gate
 
@@ -83,6 +84,9 @@ Automated behavioral tests are now configured with Vitest. The current foundatio
 - Test config: `vitest.config.ts`
 - Test files: `tests/**/*.test.ts`
 - Testing guide: [`docs/testing.md`](docs/testing.md)
+- Local validation guide: [`docs/local-testing.md`](docs/local-testing.md)
+- Docker guide: [`docs/docker.md`](docs/docker.md)
+- Debugging and maintenance guide: [`docs/debugging-maintenance.md`](docs/debugging-maintenance.md)
 - CI workflow: `.github/workflows/ci.yml`
 
 The CI quality gate runs:
@@ -95,7 +99,23 @@ npm test
 npm run build
 ```
 
-Tests must not require real Stripe, Firebase, SMTP/Resend, Cloudflare credentials, or a production database. Use mocks, in-memory repositories, fake timers, and local fixtures for all provider-facing behavior until dedicated test providers or a test database are explicitly configured.
+Tests must not require real Stripe, Firebase, SMTP/Resend, Cloudflare credentials, or a production database. Use mocks, in-memory repositories, fake timers, and local fixtures for all provider-facing behavior until dedicated test providers or a test database are explicitly configured. Docker Compose provides an optional local PostgreSQL container for manual validation and future repository integration tests.
+
+## Docker local development
+
+Start the application and PostgreSQL locally with Docker:
+
+```bash
+docker compose up --build app db
+```
+
+The development container runs Prisma client generation, pushes the local schema to PostgreSQL, and starts `next dev` with hot reload. For a production-like standalone image, run:
+
+```bash
+docker compose --profile prod up --build app-prod db
+```
+
+See [`docs/docker.md`](docs/docker.md) for environment variables, persistent volumes, logs, and troubleshooting.
 
 ## Practitioner search API
 

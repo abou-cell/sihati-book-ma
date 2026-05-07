@@ -6,6 +6,7 @@ const config = [...nextVitals, {
     ".next/**",
     "out/**",
     "build/**",
+    "coverage/**",
     "next-env.d.ts"
   ]
 }];

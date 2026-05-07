@@ -11,6 +11,13 @@ export default defineConfig({
     clearMocks: true,
     unstubEnvs: true,
     testTimeout: 5_000,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov"],
+      reportsDirectory: "coverage",
+      include: ["app/api/**/*.ts", "lib/**/*.ts"],
+      exclude: ["lib/types/**", "**/*.d.ts"],
+    },
   },
   resolve: {
     alias: {
