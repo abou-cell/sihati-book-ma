@@ -10,6 +10,7 @@ const serverEnvSchema = z.object({
   NODE_ENV: z.enum(NODE_ENV_VALUES).default('development'),
   DATABASE_URL: z.url().optional(),
   AUTH_SECRET: z.string().min(32).optional(),
+  APP_ENCRYPTION_KEY: z.string().min(32).optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   EMAIL_FROM: z.email().optional(),
@@ -49,14 +50,19 @@ function parseServerEnv(input: NodeJS.ProcessEnv) {
   return parsed.data;
 }
 
+function isProductionBuildPhase(): boolean {
+  return process.env.NEXT_PHASE === 'phase-production-build';
+}
+
 function assertRequiredInProduction(env: z.infer<typeof serverEnvSchema>): void {
-  if (env.NODE_ENV !== 'production') {
+  if (env.NODE_ENV !== 'production' || isProductionBuildPhase()) {
     return;
   }
 
   const requiredInProduction: Array<keyof Omit<typeof env, 'NODE_ENV'>> = [
     'DATABASE_URL',
     'AUTH_SECRET',
+    'APP_ENCRYPTION_KEY',
     'STRIPE_SECRET_KEY',
     'STRIPE_WEBHOOK_SECRET',
     'EMAIL_FROM',

@@ -13,11 +13,18 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 | `NEXT_PUBLIC_APP_URL` | Public | Yes | Yes | Public base URL for browser and server usage. |
 | `DATABASE_URL` | Server-only | Optional now | Yes | Database connection string for backend modules. |
 | `AUTH_SECRET` | Server-only | Optional now | Yes | Secret used for auth signing/encryption (future module). |
+| `APP_ENCRYPTION_KEY` | Server-only | Optional now | Yes | Encryption key for admin-managed external service secrets. Use a strong secret and rotate through a planned re-encryption migration. |
 | `STRIPE_SECRET_KEY` | Server-only | Optional now | Yes | Stripe secret key (future payment module). |
 | `STRIPE_WEBHOOK_SECRET` | Server-only | Optional now | Yes | Stripe webhook verification secret (future payment module). |
 | `EMAIL_FROM` | Server-only | Optional now | Yes | Default sender address (future email module). |
 | `RESEND_API_KEY` | Server-only | Optional now | Yes | Resend API key (future email module). |
 
+
+## Admin-managed external service configuration
+
+External service credentials are now managed through an admin-only configuration foundation instead of being exposed to the frontend. Admins can use `/admin/service-config` to list, create, update, enable, and disable records for Stripe, Cloudflare Stream / WebRTC, Firebase, SMTP, SMS, push notifications, cloud storage, Google OAuth, and Facebook OAuth.
+
+Sensitive values are encrypted through `lib/security/encryption.ts` before they are stored, and API responses return only masked secret status. Non-sensitive metadata remains plain JSON so future provider integrations can read configuration without requiring UI changes. See [External service configuration](docs/service-configuration.md) for setup, security rules, provider activation status, and testing guidance.
 
 ## Security and authentication status
 
@@ -72,7 +79,7 @@ Automated behavioral tests are now configured with Vitest. The current foundatio
 - Testing guide: [`docs/testing.md`](docs/testing.md)
 - CI workflow: `.github/workflows/ci.yml`
 
-The CI quality gate runs:
+The CI quality gate runs (production-only runtime secrets are validated at runtime and can be omitted during the static production build phase):
 
 ```bash
 npm ci
