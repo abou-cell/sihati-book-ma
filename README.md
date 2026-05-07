@@ -13,6 +13,7 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 | `NEXT_PUBLIC_APP_URL` | Public | Yes | Yes | Public base URL for browser and server usage. |
 | `DATABASE_URL` | Server-only | Optional now | Yes | Database connection string for backend modules. |
 | `AUTH_SECRET` | Server-only | Optional now | Yes | Secret used for auth signing/encryption (future module). |
+| `APP_ENCRYPTION_KEY` | Server-only | Optional now | Yes | Base64-encoded 32-byte key for production encryption of sensitive application data. |
 | `STRIPE_SECRET_KEY` | Server-only | Optional now | Yes | Stripe secret key (future payment module). |
 | `STRIPE_WEBHOOK_SECRET` | Server-only | Optional now | Yes | Stripe webhook verification secret (future payment module). |
 | `EMAIL_FROM` | Server-only | Optional now | Yes | Default sender address (future email module). |
@@ -200,7 +201,8 @@ Tests must not require real Stripe, Firebase, SMTP/Resend, Cloudflare credential
 ## Deployment notes
 
 - Configure all production-required variables via your platform secret manager.
-- In production mode, startup validation fails when required server secrets are missing.
+- Generate `APP_ENCRYPTION_KEY` with `openssl rand -base64 32` and store the exact output in your production secret manager.
+- In production runtime, startup validation fails when required server secrets, including `APP_ENCRYPTION_KEY`, are missing. The Next.js static production build phase is allowed to complete without runtime-only secrets so CI/CD can build artifacts before injecting production secrets at runtime.
 - Rotate secrets regularly and separate credentials across dev/staging/prod.
 - Deploy behind HTTPS, enable structured request logging, and monitor 4xx/5xx rates for API reliability.
 
