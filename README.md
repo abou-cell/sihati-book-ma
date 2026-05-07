@@ -2,6 +2,49 @@
 
 Sihati is a Moroccan medical appointment booking platform built with Next.js and TypeScript.
 
+## Documentation package
+
+The repository now includes a complete technical, deployment, and operations documentation package for final stabilization and production preparation. Start with the architecture and checklist documents, then use the environment-specific guides for setup and deployment.
+
+### Core production-readiness documents
+
+- [Technical architecture](docs/technical-architecture.md) — global architecture, frontend/backend layering, auth/RBAC, data flow, service configuration flow, environment variables, folder structure, and Mermaid diagrams.
+- [GitHub/local installation guide](docs/installation-github-local.md) — clone, dependency installation, `.env.local` setup, local frontend/API startup, UI visualization, checks, tests, and common setup issues.
+- [Firebase Auth guide](docs/firebase-auth-guide.md) — production Firebase Auth usage, provider setup, frontend/backend configuration, security rules, user management, and migration from demo-header auth.
+- [AWS deployment guide](docs/aws-deployment.md) — EC2, S3, CloudFront, RDS, Route53, load balancing, HTTPS, DNS, environment variables, server security, backups, monitoring, and deployment checklist.
+- [Database options](docs/database-options.md) — AWS RDS PostgreSQL/MySQL, Supabase PostgreSQL, and SQL Server setup and compatibility notes.
+- [Debugging and maintenance](docs/debugging-maintenance.md) — logs, common errors, Docker, Firebase, CORS, deployments, database errors, WebRTC/Jitsi, Stripe, diagnostics, and recovery procedures.
+- [Production checklist](docs/production-checklist.md) — frontend/backend optimization, bundle size, images, cache, secrets, SEO, HTTPS, backups, monitoring, scalability, auth/database gates, and smoke tests.
+
+### Existing stabilization documents
+
+- [Security hardening guide](docs/security.md)
+- [Authentication and authorization](docs/authentication.md)
+- [Admin-managed service configuration](docs/service-configuration.md)
+- [Testing guide](docs/testing.md)
+- [Local validation guide](docs/local-testing.md)
+- [Docker guide](docs/docker.md)
+- [Deployment essentials](docs/deployment.md)
+- [Database integration](docs/database-integration.md)
+- [Configuration guide](docs/configuration.md)
+- [Final audit report](docs/final-audit-report.md)
+- [Completion roadmap](docs/completion-roadmap.md)
+
+## Production readiness
+
+Sihati is in final stabilization. Production deployment must preserve the current UI style and avoid unrelated product expansion while hardening security, deployment operations, testing discipline, and maintainability.
+
+Minimum release gates before production:
+
+- Replace development-only demo-header auth with a server-verified production auth provider such as Firebase Auth, signed session cookies, or JWT verification.
+- Keep current-user lookup, role checks, ownership checks, and permission logic centralized in `lib/auth/` and `lib/security/`.
+- Deploy the database with reviewed Prisma migrations and a tested backup/restore plan.
+- Store secrets in deployment secret management, never in Git or browser-exposed variables.
+- Enforce HTTPS, production DNS, provider webhook URLs, and secure cookie settings when sessions are implemented.
+- Run and pass `npm run check` and `npm run build` in CI before deployment.
+- Configure monitoring, logs, alerts, and documented recovery procedures.
+
+
 ## Environment configuration
 
 Runtime environment validation is implemented with Zod in `lib/env.ts`, and app configuration is centralized in `lib/config/app.ts`.

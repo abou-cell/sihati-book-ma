@@ -1,0 +1,372 @@
+# Sihati Technical Architecture
+
+Sihati is a Next.js and TypeScript medical appointment booking platform for patient booking, practitioner availability, admin configuration, payments placeholders, notifications, and video consultation entry points. This document describes the production-oriented architecture as it exists today and the operational boundaries that must be preserved during stabilization.
+
+## 1. Global architecture
+
+The application is a single Next.js App Router codebase that contains:
+
+- Public and protected server-rendered pages under `app/`.
+- API route handlers under `app/api/`.
+- Domain services under `lib/services/`.
+- Repository/data access modules under `lib/repositories/` and Prisma access through `lib/db/prisma.ts`.
+- Security, auth, validation, and runtime configuration modules under `lib/`.
+- Shared UI and layout components under `components/`.
+- Prisma schema under `prisma/schema.prisma`.
+- Unit/API tests under `tests/`.
+
+```mermaid
+flowchart TD
+  Browser[Browser / Patient / Practitioner / Admin]
+  Pages[Next.js App Router Pages]
+  API[Next.js API Routes]
+  Auth[Auth Helpers]
+  Validators[Zod Validators]
+  Services[Domain Service Layer]
+  Repos[Repository / Data Layer]
+  Prisma[Prisma Client]
+  DB[(PostgreSQL Database)]
+  Providers[External Providers: Stripe, Firebase, SMTP/Resend, Cloud Storage, Video]
+
+  Browser --> Pages
+  Browser --> API
+  Pages --> Auth
+  API --> Auth
+  API --> Validators
+  Pages --> Services
+  API --> Services
+  Services --> Repos
+  Repos --> Prisma
+  Prisma --> DB
+  Services -. configuration / future integrations .-> Providers
+```
+
+## 2. Frontend architecture
+
+### App Router structure
+
+- `app/page.tsx` is the public home entry point.
+- `app/(public)/search/page.tsx` and `app/(public)/specialties/[specialty]/page.tsx` expose public discovery pages.
+- `app/practitioners/[slug]/page.tsx` exposes practitioner profile pages.
+- `app/booking/new/page.tsx` and `app/booking/new/BookingNewClient.tsx` support patient booking.
+- `app/dashboard/patient/*`, `app/dashboard/practitioner/*`, and `app/dashboard/admin/*` are role-protected dashboard areas.
+- `app/consultation/[appointmentId]/page.tsx` is the protected video consultation entry page.
+- `app/access-denied/page.tsx` is the common authorization failure page.
+
+### Component structure
+
+- `components/layout/` contains global layout primitives such as header and footer.
+- `components/ui/` contains reusable UI primitives.
+- `components/search/`, `components/calendar/`, and `components/cards/` contain feature-specific presentation components.
+
+### Frontend responsibilities
+
+The frontend should remain focused on:
+
+- Rendering pages and forms.
+- Calling internal API routes.
+- Displaying validation and access errors safely.
+- Never embedding server-only secrets.
+- Using only `NEXT_PUBLIC_*` environment variables in browser code.
+
+## 3. Backend/API architecture
+
+API handlers live in `app/api/**/route.ts` and use a consistent shape:
+
+1. Apply authentication/authorization where needed.
+2. Apply same-origin checks for browser-originating mutations.
+3. Parse query/body data through Zod validators.
+4. Delegate business rules to services.
+5. Return sanitized JSON through shared error helpers.
+
+Current API routes include:
+
+| Route | Status | Main responsibility |
+| --- | --- | --- |
+| `GET /api/practitioners/search` | Public | Search practitioners with validated filters. |
+| `GET /api/practitioners/[id]/available-slots` | Public | Generate available appointment slots. |
+| `POST /api/appointments` | Protected | Create appointments for authenticated patients. |
+| `GET /api/medical-documents` | Protected placeholder | Reserved until storage rules are complete. |
+| `POST /api/payments/checkout` | Protected placeholder | Reserved until verified Stripe checkout exists. |
+| `POST /api/stripe/webhook` | Provider endpoint placeholder | Reserved for Stripe signature-verified webhooks. |
+| `GET/POST/PATCH /api/admin/service-config` | Admin only | Manage external service configuration records. |
+| `GET /api/reviews` | Placeholder | Reserved for review data. |
+
+## 4. Service layer
+
+The service layer owns business logic and keeps route handlers thin.
+
+| Service | File | Responsibility |
+| --- | --- | --- |
+| `AppointmentService` | `lib/services/appointment.service.ts` | Appointment creation and appointment business rules. |
+| `AvailabilityService` | `lib/services/availability.service.ts` | Availability rules, blocked dates, and slot generation. |
+| `PractitionerSearchService` | `lib/services/practitioner-search.service.ts` | Practitioner search orchestration. |
+| `NotificationService` | `lib/services/notification.service.ts` | Notification payload preparation and status handling. |
+| `AppConfigService` | `lib/services/app-config.service.ts` | Admin-managed external provider configuration with encrypted secrets and masked previews. |
+
+Service design rules:
+
+- Keep provider-specific code behind service boundaries.
+- Keep validation schemas in `lib/validators/` and call them before service execution.
+- Avoid direct database calls from UI components.
+- Avoid direct environment variable reads outside `lib/env.ts`, `lib/config/app.ts`, and narrowly scoped provider adapters.
+
+## 5. Repository/data layer
+
+### Prisma
+
+`prisma/schema.prisma` defines the core data model:
+
+- Users and roles: `User`, `UserRole`.
+- Practitioners and catalog data: `Practitioner`, `ConsultationReason`.
+- Scheduling: `AvailabilityRule`, `BlockedDate`, `Appointment`, `ConsultationType`, `AppointmentStatus`.
+- Notifications: `Notification`, notification channel/status/type enums.
+- External configuration: `ServiceConfiguration`, `ExternalServiceProvider`.
+
+The current Prisma datasource is PostgreSQL. Production deployments should use migrations (`prisma migrate deploy`) rather than `prisma db push`.
+
+### Repositories
+
+Repository modules under `lib/repositories/` isolate persistence access from service logic. Mock repositories under `lib/repositories/mock/` support deterministic tests and provider-free development.
+
+```mermaid
+flowchart LR
+  API[API Route] --> Service[Domain Service]
+  Page[Server Page] --> Service
+  Service --> Repository[Repository Interface / Module]
+  Repository --> Prisma[Prisma Client]
+  Prisma --> Database[(Database)]
+  Service --> MockRepo[Mock Repository for tests]
+```
+
+## 6. Authentication flow
+
+Current stabilization state:
+
+- Authentication is centralized in `lib/auth/current-user.ts` and `lib/auth/session.ts`.
+- Demo headers (`x-user-id`, `x-user-role`) are accepted only when `NODE_ENV !== production`.
+- Production must replace demo headers with verified Firebase Auth, signed session cookies, or JWT/session verification before release.
+
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant Route as Page/API Route
+  participant Auth as Auth Helpers
+  participant Permissions as Role/Permission Helpers
+
+  Browser->>Route: Request protected page/API
+  Route->>Auth: Resolve current user
+  Auth->>Auth: Read verified session (future) or demo headers outside production
+  alt no valid user
+    Auth-->>Route: unauthenticated / redirect
+  else valid user
+    Route->>Permissions: Check allowed roles/permissions
+    alt denied
+      Permissions-->>Route: 403 or access-denied redirect
+    else allowed
+      Route-->>Browser: Protected response
+    end
+  end
+```
+
+Production auth requirements:
+
+- Keep all user resolution centralized.
+- Reject spoofable identity headers in production.
+- Validate tokens/cookies on the server.
+- Store only minimal session data in cookies.
+- Re-check ownership server-side for appointment, consultation, and medical document access.
+
+## 7. Role-based access control
+
+Roles are defined as:
+
+- `PATIENT`
+- `PRACTITIONER`
+- `ADMIN`
+
+Permissions are centralized in `lib/auth/permissions.ts` and enforced with helpers from `lib/auth/current-user.ts` and `lib/security/access-control.ts`.
+
+| Area | Patient | Practitioner | Admin |
+| --- | --- | --- | --- |
+| Create own appointment | Yes | No | No |
+| Read own appointments | Yes | No | Yes |
+| Read assigned appointments | No | Yes | Yes |
+| Manage own availability | No | Yes | Yes |
+| Join own/assigned video consultation | Own only | Assigned only | Any |
+| Access admin service configuration | No | No | Yes |
+| Validate/manage practitioner catalog | No | No | Yes |
+
+## 8. Video consultation flow
+
+Current implementation provides a protected consultation entry route and appointment-level authorization. Provider provisioning and signed room tokens remain production follow-up items.
+
+```mermaid
+sequenceDiagram
+  participant Patient
+  participant App as Sihati App
+  participant Auth
+  participant Appt as Appointment Service/Data
+  participant Video as Video Provider (future)
+
+  Patient->>App: Open /consultation/{appointmentId}
+  App->>Auth: Require authenticated user
+  App->>Appt: Load appointment and consultation type
+  App->>App: Verify not cancelled and user owns/is assigned/admin
+  alt valid VIDEO appointment
+    App->>Video: Request signed/expiring room token (future)
+    App-->>Patient: Render consultation room entry
+  else invalid or unauthorized
+    App-->>Patient: Access denied / safe error
+  end
+```
+
+Production requirements:
+
+- Use unique room IDs that do not expose sensitive appointment data.
+- Generate short-lived room tokens server-side.
+- Prevent room reuse after cancellation or appointment completion.
+- Log join attempts without logging PHI or tokens.
+- Configure TURN/STUN or provider infrastructure for reliable WebRTC connectivity.
+
+## 9. Notification flow
+
+Notifications are modeled with channel, status, type, recipient, subject, message, sent time, and metadata. The current service foundation should remain provider-independent until SMTP/SMS/push providers are configured.
+
+```mermaid
+flowchart TD
+  Event[Appointment or Reminder Event]
+  NotificationService[NotificationService]
+  Template[Email/SMS/Push Template]
+  Record[(Notification Record)]
+  Provider{Provider configured?}
+  Email[Email/SMS/Push Provider]
+  Status[Update status SENT/FAILED]
+
+  Event --> NotificationService
+  NotificationService --> Template
+  NotificationService --> Record
+  NotificationService --> Provider
+  Provider -- yes --> Email --> Status
+  Provider -- no --> Status
+```
+
+Production requirements:
+
+- Store provider message IDs in metadata.
+- Retry failed notifications with bounded retry policy.
+- Avoid sending secrets, tokens, or unnecessary health data in messages.
+- Keep provider credentials in encrypted service configuration or server-only environment variables.
+
+## 10. Admin service configuration flow
+
+Admin-managed configuration stores metadata plainly and secret bags encrypted with `APP_ENCRYPTION_KEY`. API responses return masked secret previews only.
+
+Supported provider enum values:
+
+- `STRIPE`
+- `CLOUDFLARE_STREAM_WEBRTC`
+- `FIREBASE`
+- `SMTP`
+- `SMS_PROVIDER`
+- `PUSH_NOTIFICATIONS`
+- `CLOUD_STORAGE`
+- `GOOGLE_OAUTH`
+- `FACEBOOK_OAUTH`
+
+```mermaid
+sequenceDiagram
+  participant Admin
+  participant UI as /admin/service-config
+  participant API as /api/admin/service-config
+  participant Auth as RBAC
+  participant Service as AppConfigService
+  participant Crypto as AES-256-GCM Encryption
+  participant DB as ServiceConfiguration
+
+  Admin->>UI: Edit provider metadata/secrets
+  UI->>API: POST/PATCH config
+  API->>Auth: Require ADMIN + same-origin mutation
+  API->>Service: Validate payload
+  Service->>Crypto: Encrypt provided secrets
+  Service->>DB: Upsert/toggle configuration
+  DB-->>Service: Stored record
+  Service-->>API: Safe config with masked secrets
+  API-->>UI: Sanitized response
+```
+
+Operational rules:
+
+- Never return decrypted secrets to browsers.
+- Rotate `APP_ENCRYPTION_KEY` with a planned decrypt/re-encrypt migration.
+- Treat service configuration as runtime configuration, not as a feature implementation.
+- Log admin actions with actor IDs and provider names, not secret values.
+
+## 11. Environment variables
+
+Runtime validation is centralized in `lib/env.ts`. Copy `.env.example` to `.env.local` for local development and provide real values through the deployment platform for production.
+
+| Variable | Public/server | Production | Purpose |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Public | Required | Canonical app URL used by browser and server. |
+| `NODE_ENV` | Server | Required | Runtime mode: `development`, `test`, or `production`. |
+| `DATABASE_URL` | Server | Required | Prisma database connection string. |
+| `AUTH_SECRET` | Server | Required | Secret for production session/JWT signing or auth integration. |
+| `APP_ENCRYPTION_KEY` | Server | Required | Base64 32-byte key for AES-256-GCM encrypted service secrets. |
+| `STRIPE_SECRET_KEY` | Server | Required when payments are active | Stripe API key. |
+| `STRIPE_WEBHOOK_SECRET` | Server | Required when payments are active | Stripe webhook signature secret. |
+| `EMAIL_FROM` | Server | Required when email is active | Verified outbound sender address. |
+| `RESEND_API_KEY` | Server | Required when email is active | Resend/provider API key placeholder. |
+
+Generate production secrets with secure tooling, for example:
+
+```bash
+openssl rand -base64 32
+openssl rand -hex 32
+```
+
+## 12. Folder structure
+
+```text
+app/                         Next.js App Router pages and API route handlers
+app/api/                     Backend API routes
+components/                  Reusable UI and feature components
+docs/                        Technical, deployment, testing, and operations docs
+emails/templates/            Notification templates
+lib/auth/                    Current-user, session, and permission helpers
+lib/config/                  Central app configuration
+lib/db/                      Prisma client bootstrap
+lib/repositories/            Data access modules and test-friendly repositories
+lib/security/                Error handling, access control, rate limiting, encryption, upload security
+lib/services/                Domain service layer
+lib/validators/              Zod request and domain validation schemas
+prisma/                      Prisma schema and future migrations
+tests/                       Unit and API tests
+```
+
+## 13. Production architecture target
+
+For production, the recommended deployment topology is:
+
+```mermaid
+flowchart TD
+  User[Users] --> DNS[Route53 DNS]
+  DNS --> CDN[CloudFront]
+  CDN --> ALB[Application Load Balancer]
+  ALB --> App[EC2/ECS/Node Next.js Runtime]
+  App --> RDS[(RDS PostgreSQL)]
+  App --> S3[(S3 private assets/backups)]
+  App --> Stripe[Stripe]
+  App --> AuthProvider[Firebase Auth or session provider]
+  App --> Email[Email/SMS/Push providers]
+  App --> Logs[CloudWatch Logs/Metrics]
+```
+
+Minimum release gates:
+
+- Verified production authentication.
+- Database migrations deployed and tested.
+- HTTPS enforced end-to-end.
+- Secrets stored outside Git.
+- Backups and restore procedure validated.
+- `npm run check` and `npm run build` passing in CI.
