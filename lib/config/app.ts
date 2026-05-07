@@ -9,6 +9,7 @@ export const appConfig = {
   integrations: {
     databaseConfigured: Boolean(serverEnv.DATABASE_URL),
     authConfigured: Boolean(serverEnv.AUTH_SECRET),
+    encryptionConfigured: Boolean(serverEnv.APP_ENCRYPTION_KEY),
     stripeConfigured:
       Boolean(serverEnv.STRIPE_SECRET_KEY) &&
       Boolean(serverEnv.STRIPE_WEBHOOK_SECRET),
