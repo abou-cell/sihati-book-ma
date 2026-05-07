@@ -38,10 +38,10 @@ Production readiness requirements before release:
 
 ## Local setup
 
-1. Install Node.js 20.11+.
+1. Install Node.js 22 LTS (minimum 22.12.0; see `.nvmrc`).
 2. Install dependencies:
    ```bash
-   npm install
+   npm ci
    ```
 3. Create local env file:
    ```bash
@@ -275,13 +275,13 @@ Generation pipeline:
 
 ### Setup
 
-- Use Node.js `>=20.11.0`.
-- Install dependencies via `npm install`.
+- Use Node.js 22 LTS (`>=22.12.0`) and npm `>=10`.
+- Install dependencies via `npm ci`.
 - Configure environment variables in `.env.local` (development) and your secret manager (staging/production).
 
 ### Testing strategy
 
-- Minimum local gate before commit: `npm run check`.
+- Minimum local gate before commit: `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
 - Add unit tests for:
   - availability validators
   - `getAvailableSlots` edge cases (breaks, blocked dates, booked slots, past slots)
@@ -331,7 +331,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 
 #### Setup
 
-1. Install dependencies: `npm install`
+1. Install dependencies: `npm ci`
 2. Start local app: `npm run dev`
 3. Open booking page with params, for example:
    - `/booking/new?practitionerId=p_1&reasonId=reason_general&consultationType=IN_PERSON&startTime=2026-06-01T09:00:00.000Z`
@@ -410,7 +410,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 
 1. Install dependencies:
    ```bash
-   npm install
+   npm ci
    ```
 2. Start development server:
    ```bash
@@ -526,7 +526,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 
 ### Setup
 
-1. Ensure base project setup is done (`npm install`, `.env.local`).
+1. Ensure base project setup is done (`npm ci`, `.env.local`).
 2. Configure optional email variables for real provider integration later:
    - `EMAIL_FROM`
    - `RESEND_API_KEY`
@@ -575,7 +575,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 
 ### Setup
 
-1. Install dependencies with `npm install`.
+1. Install dependencies with `npm ci`.
 2. Create environment file (`cp .env.example .env.local`).
 3. Start local server (`npm run dev`).
 
@@ -663,10 +663,10 @@ See [docs/final-audit-report.md](docs/final-audit-report.md) for the final techn
 Use the following commands before production deployment or before opening a release PR:
 
 ```bash
-npm install
+npm ci
 npm run lint
 npm run typecheck
-npm run check
+npm test
 npm run build
 npm audit --audit-level=moderate
 ```
