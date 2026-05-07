@@ -5,23 +5,14 @@ This project uses **Vitest** for fast, deterministic TypeScript tests that fit t
 ## Local commands
 
 ```bash
-npm test
-npm run test:watch
-npm run lint
-npm run typecheck
-npm run build
-npm run check
-```
-
-Recommended local pre-PR gate:
-
-```bash
+npm ci
 npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run check
 ```
+
+For watch-mode testing during local development, run `npm run test:watch`. `npm run check` remains a convenience alias for lint plus typecheck, but the full local pre-PR gate matches CI exactly.
 
 ## Current test foundation
 

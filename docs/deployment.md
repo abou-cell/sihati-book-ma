@@ -2,6 +2,8 @@
 
 ## Essentials
 
+Use Node.js 22 LTS (`>=22.12.0`) and npm `>=10` in deployment environments. Install dependencies with `npm ci` so deployments match CI and the lockfile.
+
 1. Set production environment variables (`DATABASE_URL`, `AUTH_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`).
 2. Generate Prisma client: `npx prisma generate`.
 3. Run database migrations: `npx prisma migrate deploy`.
