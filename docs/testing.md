@@ -9,10 +9,11 @@ npm ci
 npm run lint
 npm run typecheck
 npm test
+npm run test:coverage
 npm run build
 ```
 
-For watch-mode testing during local development, run `npm run test:watch`. `npm run check` remains a convenience alias for lint plus typecheck, but the full local pre-PR gate matches CI exactly.
+For watch-mode testing during local development, run `npm run test:watch`. For V8 coverage, run `npm run test:coverage` and open `coverage/index.html`. `npm run check` runs lint, typecheck, and the one-shot Vitest suite.
 
 ## Current test foundation
 
@@ -22,8 +23,9 @@ The initial suite intentionally focuses on production-safety seams that do not r
 - service behavior for appointment creation, practitioner search mapping, availability slot generation, and notifications,
 - auth/session helper behavior for local demo headers and production rejection,
 - role/permission helpers,
-- centralized security error helpers,
-- API response contracts for validation errors and safe success envelopes.
+- centralized security error helpers, origin checks, upload validation, and in-memory rate limiting,
+- admin service configuration validators and safe service responses,
+- API response contracts for validation errors, auth errors, available slots, admin configuration, and safe success envelopes.
 
 ## Provider and data isolation rules
 
@@ -45,7 +47,7 @@ GitHub Actions runs the production-readiness gate on pushes and pull requests:
 4. `npm test`
 5. `npm run build`
 
-`npm run check` remains the combined lint/typecheck command for local convenience. CI runs lint and typecheck as separate explicit stages so failures are easier to diagnose.
+`npm run check` is the local combined gate for lint, typecheck, and tests. CI can still run lint, typecheck, tests, and build as separate explicit stages so failures are easier to diagnose.
 
 ## Remaining test gaps
 
