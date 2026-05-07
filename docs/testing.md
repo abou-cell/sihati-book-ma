@@ -13,7 +13,7 @@ npm run test:coverage
 npm run build
 ```
 
-For watch-mode testing during local development, run `npm run test:watch`. For V8 coverage, run `npm run test:coverage` and open `coverage/index.html`. `npm run check` runs lint, typecheck, and the one-shot Vitest suite.
+For watch-mode testing during local development, run `npm run test:watch`. For V8 coverage, run `npm run test:coverage` and open `coverage/index.html`. `npm run check` runs lint, typecheck, and the one-shot Vitest suite. `npm run prod:check` extends that local gate with the production build and dependency audit for release candidates.
 
 ## Current test foundation
 
@@ -46,8 +46,9 @@ GitHub Actions runs the production-readiness gate on pushes and pull requests:
 3. `npm run typecheck`
 4. `npm test`
 5. `npm run build`
+6. `npm run audit:prod`
 
-`npm run check` is the local combined gate for lint, typecheck, and tests. CI can still run lint, typecheck, tests, and build as separate explicit stages so failures are easier to diagnose.
+`npm run check` is the local combined gate for lint, typecheck, and tests. `npm run prod:check` is the release-candidate gate for lint, typecheck, tests, build, and dependency audit. CI can still run these as separate explicit stages so failures are easier to diagnose.
 
 ## Remaining test gaps
 

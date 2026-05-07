@@ -12,7 +12,9 @@
     "check": "npm run lint && npm run typecheck && npm test",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "audit:prod": "npm audit --audit-level=moderate",
+    "prod:check": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit:prod"
   },
   "dependencies": {
     "@prisma/client": "^6.8.0",
