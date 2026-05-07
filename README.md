@@ -28,6 +28,7 @@ The repository now includes a complete technical, deployment, and operations doc
 - [Database integration](docs/database-integration.md)
 - [Configuration guide](docs/configuration.md)
 - [Final audit report](docs/final-audit-report.md)
+- [Final production readiness report](docs/final-production-readiness-report.md)
 - [Completion roadmap](docs/completion-roadmap.md)
 
 ## Production readiness
@@ -41,7 +42,7 @@ Minimum release gates before production:
 - Deploy the database with reviewed Prisma migrations and a tested backup/restore plan.
 - Store secrets in deployment secret management, never in Git or browser-exposed variables.
 - Enforce HTTPS, production DNS, provider webhook URLs, and secure cookie settings when sessions are implemented.
-- Run and pass `npm run check` and `npm run build` in CI before deployment.
+- Run and pass `npm run prod:check` in CI before deployment, or run its lint, typecheck, test, build, and audit stages separately for clearer failure diagnostics.
 - Configure monitoring, logs, alerts, and documented recovery procedures.
 
 
@@ -735,6 +736,10 @@ These safeguards prevent mock data and unsafe provider placeholders from being m
 
 See [docs/final-audit-report.md](docs/final-audit-report.md) for the final technical audit, production-readiness risks, and recommended stabilization checklist.
 
+## Final production readiness verification
+
+The current verification report is [`docs/final-production-readiness-report.md`](docs/final-production-readiness-report.md). It records the final readiness score, completed checks, deployment blockers, remaining MVP limitations, monitoring and backup recommendations, and file-change inventory for the May 7, 2026 production-readiness pass.
+
 ## Build, check, and dependency audit workflow
 
 Use the following commands before production deployment or before opening a release PR:
@@ -745,10 +750,10 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
-npm audit --audit-level=moderate
+npm run audit:prod
 ```
 
-`npm run check` intentionally runs lint and TypeScript together. Run `npm run build` as a separate release gate because Next.js generates typed-route artifacts and performs production prerendering checks that are not covered by plain `tsc --noEmit`.
+`npm run check` intentionally runs lint, TypeScript, and unit/API tests. `npm run prod:check` adds the production build and dependency audit for release candidates. Run the stages separately in CI when clearer failure diagnostics are preferred because Next.js generates typed-route artifacts and performs production prerendering checks that are not covered by plain `tsc --noEmit`.
 
 ### Dependency audit note
 
@@ -762,6 +767,6 @@ A production candidate should pass all of these gates in CI:
 - TypeScript: `npm run typecheck`
 - Combined local check: `npm run check`
 - Production build: `npm run build`
-- Dependency audit: `npm audit --audit-level=moderate`
+- Dependency audit: `npm run audit:prod`
 
 Do not treat a passing build as full production approval. Authentication, persistence, payments, deployment infrastructure, and broader automated tests still require separate hardening work before release.
