@@ -1,12 +1,67 @@
-import type { UserRole } from "@/lib/auth/permissions";
+import type { CurrentUser } from "@/lib/auth/current-user";
 import { getCurrentUserFromRequest, requireRolesForApi } from "@/lib/auth/current-user";
+import type { UserRole } from "@/lib/auth/permissions";
+import { AppError } from "@/lib/security/errors";
 
 export type { UserRole };
 
-export function getUserContext(request: Request) {
+export type AppointmentAccessRecord = {
+  patientId: string;
+  practitionerId: string;
+  consultationType?: "IN_PERSON" | "VIDEO";
+  status?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+};
+
+export function getUserContext(request: Request): CurrentUser {
   return getCurrentUserFromRequest(request);
 }
 
-export function requireRole(currentRole: UserRole, allowed: UserRole[]) {
+export function requireRole(currentRole: UserRole, allowed: readonly UserRole[]) {
   requireRolesForApi(currentRole, allowed);
+}
+
+export function requireUserContext(request: Request, allowed: readonly UserRole[]): CurrentUser {
+  const currentUser = getUserContext(request);
+  requireRole(currentUser.role, allowed);
+  return currentUser;
+}
+
+export function canAccessAppointment(currentUser: CurrentUser, appointment: AppointmentAccessRecord): boolean {
+  if (currentUser.role === "ADMIN") return true;
+  if (currentUser.role === "PATIENT") return currentUser.userId === appointment.patientId;
+  if (currentUser.role === "PRACTITIONER") return currentUser.userId === appointment.practitionerId;
+  return false;
+}
+
+export function assertCanAccessAppointment(currentUser: CurrentUser, appointment: AppointmentAccessRecord): void {
+  if (!canAccessAppointment(currentUser, appointment)) {
+    throw new AppError("APPOINTMENT_ACCESS_DENIED", 403, "Access denied");
+  }
+}
+
+export function canAccessVideoConsultation(currentUser: CurrentUser, appointment: AppointmentAccessRecord): boolean {
+  return (
+    appointment.consultationType === "VIDEO" &&
+    appointment.status !== "CANCELLED" &&
+    canAccessAppointment(currentUser, appointment)
+  );
+}
+
+export function assertCanAccessVideoConsultation(currentUser: CurrentUser, appointment: AppointmentAccessRecord): void {
+  if (!canAccessVideoConsultation(currentUser, appointment)) {
+    throw new AppError("VIDEO_ACCESS_DENIED", 403, "Access denied");
+  }
+}
+
+export function assertSameOrigin(request: Request): void {
+  const origin = request.headers.get("origin");
+
+  // Non-browser server-to-server requests often omit Origin. Enforce when present
+  // so future cookie-based sessions have a central CSRF origin check to reuse.
+  if (!origin) return;
+
+  const trustedOrigin = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").origin;
+  if (origin !== trustedOrigin) {
+    throw new AppError("INVALID_ORIGIN", 403, "Access denied");
+  }
 }

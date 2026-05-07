@@ -1,9 +1,9 @@
-import { getUserContext, requireRole } from "@/lib/security/access-control";
+import { assertSameOrigin, requireUserContext } from "@/lib/security/access-control";
 import { AppError, withErrorHandling } from "@/lib/security/errors";
 
 export const POST = withErrorHandling(async (request: Request) => {
-  const { role } = getUserContext(request);
-  requireRole(role, ["PATIENT"]);
+  assertSameOrigin(request);
+  requireUserContext(request, ["PATIENT"]);
 
   throw new AppError(
     "PAYMENTS_NOT_IMPLEMENTED",

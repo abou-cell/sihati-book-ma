@@ -18,6 +18,24 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 | `EMAIL_FROM` | Server-only | Optional now | Yes | Default sender address (future email module). |
 | `RESEND_API_KEY` | Server-only | Optional now | Yes | Resend API key (future email module). |
 
+
+## Security and authentication status
+
+Sihati is in final stabilization and now centralizes authentication and authorization through `lib/auth/current-user.ts`, `lib/auth/session.ts`, `lib/auth/permissions.ts`, and `lib/security/access-control.ts`. The current MVP auth adapter accepts demo headers only outside production and documents them as non-production. Protected API routes and protected server pages must use the central helpers rather than reading identity headers directly.
+
+Security documentation:
+
+- [Security hardening guide](docs/security.md)
+- [Authentication and authorization](docs/authentication.md)
+
+Production readiness requirements before release:
+
+- Replace demo-header auth with Firebase Auth verification, signed session cookies, or JWT verification.
+- Keep current-user lookup centralized in `lib/auth/current-user.ts`.
+- Keep patient data scoped to the owning patient, assigned practitioner, or admin.
+- Replace in-memory rate limiting with a shared store such as Redis, Upstash, or an edge/WAF limiter.
+- Add integration tests for every protected route and API permission path.
+
 ## Local setup
 
 1. Install Node.js 20.11+.

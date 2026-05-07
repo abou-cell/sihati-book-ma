@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getCurrentUserFromServer } from "@/lib/auth/current-user";
+import { canAccessVideoConsultation } from "@/lib/security/access-control";
 type ConsultationType = "IN_PERSON" | "VIDEO";
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
@@ -20,8 +21,7 @@ export default async function ConsultationPage({ params }: { params: Promise<{ a
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment) redirect("/access-denied");
 
-  const isParticipant = (currentUser.role === "PATIENT" && currentUser.userId === appointment.patient.id) || (currentUser.role === "PRACTITIONER" && currentUser.userId === appointment.practitioner.id) || currentUser.role === "ADMIN";
-  if (!isParticipant || appointment.consultationType !== "VIDEO" || appointment.status === "CANCELLED") redirect("/access-denied");
+  if (!canAccessVideoConsultation(currentUser, { patientId: appointment.patient.id, practitionerId: appointment.practitioner.id, consultationType: appointment.consultationType, status: appointment.status })) redirect("/access-denied");
 
   const now = new Date();
   const startTime = new Date(appointment.startTime);
