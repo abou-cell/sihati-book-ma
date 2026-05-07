@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getCurrentUserFromRequest, requireRolesForApi } from "@/lib/auth/current-user";
+import { canAccessAppointment, canAccessVideoConsultation } from "@/lib/security/access-control";
 import { hasAnyRole, isUserRole } from "@/lib/auth/permissions";
 import { demoSessionHeaderNames, readDemoSessionFromRequest } from "@/lib/auth/session";
 import { AppError } from "@/lib/security/errors";
@@ -35,7 +36,7 @@ describe("demo session helpers", () => {
       },
     });
 
-    expect(readDemoSessionFromRequest(request)).toEqual({ userId: "user_1", role: "PATIENT" });
+    expect(readDemoSessionFromRequest(request)).toEqual({ userId: "user_1", role: "PATIENT", source: "demo-headers" });
   });
 
   it("rejects demo headers in production", () => {
@@ -58,5 +59,23 @@ describe("demo session helpers", () => {
   it("throws access denied for disallowed API roles", () => {
     expect(() => requireRolesForApi("PATIENT", ["ADMIN"])).toThrow(AppError);
     expect(() => requireRolesForApi("ADMIN", ["ADMIN"])).not.toThrow();
+  });
+});
+
+
+describe("appointment access helpers", () => {
+  const appointment = { patientId: "patient_1", practitionerId: "practitioner_1", consultationType: "VIDEO" as const, status: "CONFIRMED" as const };
+
+  it("limits appointment records to owners, assigned practitioners, and admins", () => {
+    expect(canAccessAppointment({ userId: "patient_1", role: "PATIENT", source: "demo-headers" }, appointment)).toBe(true);
+    expect(canAccessAppointment({ userId: "patient_2", role: "PATIENT", source: "demo-headers" }, appointment)).toBe(false);
+    expect(canAccessAppointment({ userId: "practitioner_1", role: "PRACTITIONER", source: "demo-headers" }, appointment)).toBe(true);
+    expect(canAccessAppointment({ userId: "admin_1", role: "ADMIN", source: "demo-headers" }, appointment)).toBe(true);
+  });
+
+  it("limits video consultations to eligible appointment participants", () => {
+    expect(canAccessVideoConsultation({ userId: "patient_1", role: "PATIENT", source: "demo-headers" }, appointment)).toBe(true);
+    expect(canAccessVideoConsultation({ userId: "patient_1", role: "PATIENT", source: "demo-headers" }, { ...appointment, status: "CANCELLED" })).toBe(false);
+    expect(canAccessVideoConsultation({ userId: "patient_1", role: "PATIENT", source: "demo-headers" }, { ...appointment, consultationType: "IN_PERSON" })).toBe(false);
   });
 });

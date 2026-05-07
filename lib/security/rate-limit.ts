@@ -2,10 +2,30 @@ import { AppError } from "@/lib/security/errors";
 
 type Bucket = { count: number; resetAt: number };
 
+type RateLimitInput = { key: string; limit: number; windowMs: number };
+
 const buckets = new Map<string, Bucket>();
 
-export function enforceRateLimit(input: { key: string; limit: number; windowMs: number }) {
+function cleanupExpiredBuckets(now: number): void {
+  if (buckets.size < 1_000) return;
+
+  for (const [key, bucket] of buckets.entries()) {
+    if (now > bucket.resetAt) buckets.delete(key);
+  }
+}
+
+export function getClientIp(request: Request): string {
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwardedFor || request.headers.get("x-real-ip") || "unknown";
+}
+
+export function buildRateLimitKey(scope: string, request: Request, userId?: string): string {
+  return `${scope}:${userId ?? "anonymous"}:${getClientIp(request)}`;
+}
+
+export function enforceRateLimit(input: RateLimitInput) {
   const now = Date.now();
+  cleanupExpiredBuckets(now);
   const existing = buckets.get(input.key);
 
   if (!existing || now > existing.resetAt) {
@@ -21,4 +41,9 @@ export function enforceRateLimit(input: { key: string; limit: number; windowMs: 
 
   existing.count += 1;
   buckets.set(input.key, existing);
+}
+
+export function resetRateLimitForTests(): void {
+  if (process.env.NODE_ENV === "production") return;
+  buckets.clear();
 }

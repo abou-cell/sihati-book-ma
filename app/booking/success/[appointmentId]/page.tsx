@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { getCurrentUserFromServer } from "@/lib/auth/current-user";
+import { canAccessAppointment } from "@/lib/security/access-control";
 
 type ConsultationType = "IN_PERSON" | "VIDEO";
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
@@ -64,11 +65,7 @@ export default async function BookingSuccessPage({ params }: { params: Promise<{
 
   const currentUser = await getCurrentUserFromServer();
 
-  const isAllowedPatient = currentUser.role === "PATIENT" && currentUser.userId === appointment.patientId;
-  const isAllowedPractitioner = currentUser.role === "PRACTITIONER" && currentUser.userId === appointment.practitionerId;
-  const isAllowedAdmin = currentUser.role === "ADMIN";
-
-  if (!isAllowedPatient && !isAllowedPractitioner && !isAllowedAdmin) {
+  if (!canAccessAppointment(currentUser, appointment)) {
     redirect("/access-denied");
   }
 

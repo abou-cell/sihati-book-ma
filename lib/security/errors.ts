@@ -6,10 +6,23 @@ export class AppError extends Error {
     public readonly code: string,
     public readonly status: number,
     message: string,
-    public readonly details?: unknown
+    public readonly details?: unknown,
+    public readonly exposeDetails = process.env.NODE_ENV !== "production",
   ) {
     super(message);
   }
+}
+
+function serializeUnknownError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      ...(process.env.NODE_ENV === "production" ? {} : { stack: error.stack }),
+    };
+  }
+
+  return { message: "Unknown error", raw: process.env.NODE_ENV === "production" ? undefined : String(error) };
 }
 
 export function logError(error: unknown, context: { path: string; method: string; requestId: string }) {
@@ -19,14 +32,7 @@ export function logError(error: unknown, context: { path: string; method: string
     method: context.method,
     requestId: context.requestId,
     timestamp: new Date().toISOString(),
-    error:
-      error instanceof Error
-        ? {
-            name: error.name,
-            message: error.message,
-            ...(process.env.NODE_ENV === "production" ? {} : { stack: error.stack }),
-          }
-        : { message: "Unknown error", raw: String(error) },
+    error: serializeUnknownError(error),
   };
 
   console.error(JSON.stringify(payload));
@@ -34,6 +40,10 @@ export function logError(error: unknown, context: { path: string; method: string
 
 export function safeJsonResponse<T>(data: T, status = 200) {
   return NextResponse.json({ data }, { status });
+}
+
+function safeValidationDetails(error: ZodError) {
+  return process.env.NODE_ENV === "production" ? undefined : error.flatten();
 }
 
 export function withErrorHandling(
@@ -54,12 +64,14 @@ export function withErrorHandling(
       });
 
       if (error instanceof ZodError) {
+        const details = safeValidationDetails(error);
+
         return NextResponse.json(
           {
             error: {
               code: "VALIDATION_ERROR",
               message: "Request validation failed",
-              details: error.flatten(),
+              ...(details ? { details } : {}),
             },
           },
           { status: 400, headers: { "x-request-id": requestId } }
@@ -72,7 +84,7 @@ export function withErrorHandling(
             error: {
               code: error.code,
               message: error.message,
-              ...(error.details ? { details: error.details } : {}),
+              ...(error.details && error.exposeDetails ? { details: error.details } : {}),
             },
           },
           { status: error.status, headers: { "x-request-id": requestId } }
