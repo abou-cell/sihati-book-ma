@@ -3,19 +3,19 @@ import { redirect } from "next/navigation";
 import type { UserRole } from "@/lib/auth/permissions";
 import { hasAnyRole } from "@/lib/auth/permissions";
 import type { AuthSession } from "@/lib/auth/session";
-import { readDemoSessionFromRequest, readDemoSessionFromServerHeaders } from "@/lib/auth/session";
+import { readAuthSessionFromRequest, readAuthSessionFromServerHeaders } from "@/lib/auth/session";
 import { AppError } from "@/lib/security/errors";
 
 export type CurrentUser = AuthSession;
 
 export function getCurrentUserFromRequest(request: Request): CurrentUser {
-  const session = readDemoSessionFromRequest(request);
+  const session = readAuthSessionFromRequest(request);
   if (!session) throw new AppError("UNAUTHENTICATED", 401, "Authentication required");
   return session;
 }
 
 export async function getCurrentUserFromServer(): Promise<CurrentUser> {
-  const session = await readDemoSessionFromServerHeaders();
+  const session = await readAuthSessionFromServerHeaders();
   if (!session) redirect("/access-denied");
   return session;
 }
