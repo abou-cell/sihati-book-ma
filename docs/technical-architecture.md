@@ -141,11 +141,13 @@ flowchart LR
 
 ## 6. Authentication flow
 
-Current stabilization state:
+Current production state:
 
 - Authentication is centralized in `lib/auth/current-user.ts` and `lib/auth/session.ts`.
-- Demo headers (`x-user-id`, `x-user-role`) are accepted only when `NODE_ENV !== production`.
-- Production must replace demo headers with verified Firebase Auth, signed session cookies, or JWT/session verification before release.
+- Production authentication uses a signed `sihati_session` token verified with `AUTH_SECRET`; the same signed token may be supplied as `Authorization: Bearer <token>` for non-browser API clients.
+- Demo headers (`x-user-id`, `x-user-role`) are accepted only when `NODE_ENV !== "production"`. In production, either header causes the request to fail with `DEMO_AUTH_FORBIDDEN`.
+- `NODE_ENV=production` fails closed if `AUTH_SECRET` is missing or shorter than 32 characters.
+- Protected API handlers and server pages must resolve the user server-side; client-provided IDs are not trusted for authorization.
 
 ```mermaid
 sequenceDiagram
@@ -154,13 +156,14 @@ sequenceDiagram
   participant Auth as Auth Helpers
   participant Permissions as Role/Permission Helpers
 
-  Browser->>Route: Request protected page/API
+  Browser->>Route: Request protected page/API with cookie or bearer token
   Route->>Auth: Resolve current user
-  Auth->>Auth: Read verified session (future) or demo headers outside production
-  alt no valid user
-    Auth-->>Route: unauthenticated / redirect
+  Auth->>Auth: Reject production demo headers
+  Auth->>Auth: Verify HMAC signature, payload, and expiry
+  alt no valid user/session
+    Auth-->>Route: 401 / redirect
   else valid user
-    Route->>Permissions: Check allowed roles/permissions
+    Route->>Permissions: Check allowed roles and resource ownership
     alt denied
       Permissions-->>Route: 403 or access-denied redirect
     else allowed
@@ -171,11 +174,12 @@ sequenceDiagram
 
 Production auth requirements:
 
-- Keep all user resolution centralized.
+- Keep all user resolution centralized in `lib/auth/session.ts` and `lib/auth/current-user.ts`.
 - Reject spoofable identity headers in production.
-- Validate tokens/cookies on the server.
-- Store only minimal session data in cookies.
-- Re-check ownership server-side for appointment, consultation, and medical document access.
+- Validate tokens/cookies on the server with `AUTH_SECRET`.
+- Store only minimal session data in cookies: user ID, role, issued-at, and expiry.
+- Re-check ownership server-side for appointment creation/access, consultation access, medical documents, and admin service configuration.
+- Preserve same-origin checks on browser-initiated state-changing routes.
 
 ## 7. Role-based access control
 

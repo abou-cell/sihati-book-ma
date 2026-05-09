@@ -12,6 +12,11 @@ export type AppointmentAccessRecord = {
   status?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 };
 
+export type MedicalDocumentAccessRecord = {
+  patientId: string;
+  practitionerIds?: readonly string[];
+};
+
 export function getUserContext(request: Request): CurrentUser {
   return getCurrentUserFromRequest(request);
 }
@@ -50,6 +55,19 @@ export function canAccessVideoConsultation(currentUser: CurrentUser, appointment
 export function assertCanAccessVideoConsultation(currentUser: CurrentUser, appointment: AppointmentAccessRecord): void {
   if (!canAccessVideoConsultation(currentUser, appointment)) {
     throw new AppError("VIDEO_ACCESS_DENIED", 403, "Access denied");
+  }
+}
+
+export function canAccessMedicalDocument(currentUser: CurrentUser, document: MedicalDocumentAccessRecord): boolean {
+  if (currentUser.role === "ADMIN") return true;
+  if (currentUser.role === "PATIENT") return currentUser.userId === document.patientId;
+  if (currentUser.role === "PRACTITIONER") return document.practitionerIds?.includes(currentUser.userId) ?? false;
+  return false;
+}
+
+export function assertCanAccessMedicalDocument(currentUser: CurrentUser, document: MedicalDocumentAccessRecord): void {
+  if (!canAccessMedicalDocument(currentUser, document)) {
+    throw new AppError("MEDICAL_DOCUMENT_ACCESS_DENIED", 403, "Access denied");
   }
 }
 
