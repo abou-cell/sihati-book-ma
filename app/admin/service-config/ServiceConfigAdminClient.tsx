@@ -12,6 +12,8 @@ type Props = {
 
 type Status = { type: "idle" | "success" | "error"; message: string };
 
+const isGithubPagesPreview = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true";
+
 function formatProvider(provider: string) {
   return provider
     .toLowerCase()
@@ -51,6 +53,11 @@ export function ServiceConfigAdminClient({ configs, providers }: Props) {
     setStatus({ type: "idle", message: "" });
 
     try {
+      if (isGithubPagesPreview) {
+        setStatus({ type: "error", message: "GitHub Pages preview: service configuration APIs are unavailable." });
+        return;
+      }
+
       const metadata = parseJsonObject(String(formData.get("metadata") ?? ""), "Metadata");
       const secrets = toSecretBag(parseJsonObject(String(formData.get("secrets") ?? ""), "Secrets"));
       const response = await fetch("/api/admin/service-config", {
@@ -83,6 +90,11 @@ export function ServiceConfigAdminClient({ configs, providers }: Props) {
     setStatus({ type: "idle", message: "" });
 
     try {
+      if (isGithubPagesPreview) {
+        setStatus({ type: "error", message: "GitHub Pages preview: service configuration APIs are unavailable." });
+        return;
+      }
+
       const response = await fetch("/api/admin/service-config", {
         method: "PATCH",
         headers: { "content-type": "application/json" },

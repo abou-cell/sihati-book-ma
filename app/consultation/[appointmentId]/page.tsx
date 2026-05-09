@@ -1,3 +1,7 @@
+export function generateStaticParams() {
+  return [{ appointmentId: "apt_video_1" }];
+}
+
 import Link from "next/link";
 import { redirect } from "next/navigation";
 

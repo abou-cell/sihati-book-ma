@@ -7,6 +7,8 @@ import { useSearchParams } from "next/navigation";
 import { buildDemoSessionHeaders } from "@/lib/auth/session";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
 
+const isGithubPagesPreview = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true";
+
 const practitioners = [
   { id: "p_1", name: "Dr. Sara Alaoui", specialty: "Dermatology", city: "Casablanca", isVerified: true },
   { id: "p_2", name: "Dr. Ali Karim", specialty: "Cardiology", city: "Rabat", isVerified: false },
@@ -50,6 +52,12 @@ function NewAppointmentPageContent() {
   const onConfirm = async () => {
     setLoading(true);
     setResult("");
+
+    if (isGithubPagesPreview) {
+      setResult("GitHub Pages preview: appointment creation is mocked because API routes are unavailable.");
+      setLoading(false);
+      return;
+    }
 
     const response = await fetch("/api/appointments", {
       method: "POST",

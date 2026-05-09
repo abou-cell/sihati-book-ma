@@ -1,3 +1,11 @@
+export function generateStaticParams() {
+  return [
+    { specialty: "dermatology" },
+    { specialty: "cardiology" },
+    { specialty: "pediatrics" },
+  ];
+}
+
 export default async function SpecialtySeoPage({ params }: { params: Promise<{ specialty: string }> }) {
   const { specialty } = await params;
 

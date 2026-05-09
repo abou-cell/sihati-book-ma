@@ -1,3 +1,7 @@
+export function generateStaticParams() {
+  return [{ appointmentId: "apt_1" }, { appointmentId: "apt_2" }];
+}
+
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 

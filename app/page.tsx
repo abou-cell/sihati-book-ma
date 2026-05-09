@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 export default function HomePage() {
+  const searchAction = process.env.GITHUB_PAGES === "true" ? "/sihati/search" : "/search";
+
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 lg:px-8 lg:py-20">
       <div className="max-w-3xl space-y-4">
@@ -15,7 +17,7 @@ export default function HomePage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <form action="/search" className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_auto]">
+        <form action={searchAction} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_auto]">
           <Input
             name="q"
             placeholder="Search by specialty, practitioner, or clinic"
