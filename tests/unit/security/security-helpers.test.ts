@@ -39,15 +39,21 @@ describe("rate-limit helper", () => {
     resetRateLimitForTests();
   });
 
-  it("keys requests by scope, user, and forwarded client IP", () => {
+  it("keys requests by scope, user, and forwarded client IP without storing raw identifiers", () => {
     const request = new Request("https://sihati.test/api", { headers: { "x-forwarded-for": "203.0.113.10, 10.0.0.1" } });
-    expect(buildRateLimitKey("booking", request, "patient_1")).toBe("booking:patient_1:203.0.113.10");
+    const key = buildRateLimitKey("booking", request, "patient_1");
+
+    expect(key).toMatch(/^rate-limit:booking:user:[a-f0-9]{32}:ip:[a-f0-9]{32}$/);
+    expect(key).not.toContain("patient_1");
+    expect(key).not.toContain("203.0.113.10");
   });
 
-  it("throws a safe 429 error after the configured limit", () => {
-    enforceRateLimit({ key: "test:patient_1", limit: 2, windowMs: 60_000 });
-    enforceRateLimit({ key: "test:patient_1", limit: 2, windowMs: 60_000 });
+  it("throws a safe 429 error after the configured limit", async () => {
+    const request = new Request("https://sihati.test/api", { headers: { "x-forwarded-for": "203.0.113.10" } });
 
-    expect(() => enforceRateLimit({ key: "test:patient_1", limit: 2, windowMs: 60_000 })).toThrow(AppError);
+    await enforceRateLimit({ scope: "test", request, userId: "patient_1", limit: 2, windowMs: 60_000 });
+    await enforceRateLimit({ scope: "test", request, userId: "patient_1", limit: 2, windowMs: 60_000 });
+
+    await expect(enforceRateLimit({ scope: "test", request, userId: "patient_1", limit: 2, windowMs: 60_000 })).rejects.toThrow(AppError);
   });
 });

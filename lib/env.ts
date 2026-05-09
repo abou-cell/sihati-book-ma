@@ -34,6 +34,10 @@ const serverEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   EMAIL_FROM: z.email().optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
+  RATE_LIMIT_REDIS_REST_URL: z.url().optional(),
+  RATE_LIMIT_REDIS_REST_TOKEN: z.string().min(1).optional(),
+  UPSTASH_REDIS_REST_URL: z.url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
 });
 
 type ParsedServerEnv = z.infer<typeof serverEnvSchema>;
@@ -98,6 +102,13 @@ function assertRequiredInProduction(
     const value = env[key];
     return value === undefined || value === '';
   });
+
+  const hasNamedRateLimitConfig = Boolean(env.RATE_LIMIT_REDIS_REST_URL && env.RATE_LIMIT_REDIS_REST_TOKEN);
+  const hasUpstashRateLimitConfig = Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+
+  if (!hasNamedRateLimitConfig && !hasUpstashRateLimitConfig) {
+    missing.push('RATE_LIMIT_REDIS_REST_URL', 'RATE_LIMIT_REDIS_REST_TOKEN');
+  }
 
   if (missing.length > 0) {
     throw new Error(

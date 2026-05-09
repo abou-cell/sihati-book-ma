@@ -1,6 +1,8 @@
 import { AppError, withErrorHandling } from "@/lib/security/errors";
+import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rate-limit";
 
 export const POST = withErrorHandling(async (request: Request) => {
+  await enforceRateLimit({ scope: "stripe-webhook", request, ...rateLimitPolicies.providerWebhook });
   const signature = request.headers.get("stripe-signature");
 
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
