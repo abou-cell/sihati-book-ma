@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
+const isGithubPages = process.env.GITHUB_PAGES === "true";
 
 const csp = [
   "default-src 'self'",
@@ -26,19 +27,32 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: isGithubPages ? "export" : "standalone",
+  basePath: isGithubPages ? "/sihati" : undefined,
+  assetPrefix: isGithubPages ? "/sihati/" : undefined,
+  images: {
+    unoptimized: isGithubPages,
+  },
+  trailingSlash: isGithubPages,
+  env: {
+    NEXT_PUBLIC_GITHUB_PAGES: isGithubPages ? "true" : "false",
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
   typedRoutes: true,
-  async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: securityHeaders,
-      },
-    ];
-  },
+  ...(isGithubPages
+    ? {}
+    : {
+        async headers() {
+          return [
+            {
+              source: "/:path*",
+              headers: securityHeaders,
+            },
+          ];
+        },
+      }),
 };
 
 export default nextConfig;

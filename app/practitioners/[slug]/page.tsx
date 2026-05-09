@@ -1,3 +1,10 @@
+export function generateStaticParams() {
+  return [
+    { slug: "p_1" },
+    { slug: "dr-sara-alaoui" },
+  ];
+}
+
 import type { Route } from "next";
 import Link from "next/link";
 

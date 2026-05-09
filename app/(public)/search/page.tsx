@@ -19,6 +19,83 @@ type ApiResponse = {
   };
 };
 
+const isGithubPagesPreview = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true";
+
+const staticPractitioners: Practitioner[] = [
+  {
+    id: "p_1",
+    slug: "dr-sara-alaoui",
+    name: "Dr. Sara Alaoui",
+    specialty: "Dermatology",
+    city: "Casablanca",
+    address: "Maarif Center, Casablanca",
+    consultationFee: 300,
+    videoConsultationFee: 250,
+    acceptsVideoConsultation: true,
+    isVerified: true,
+    nextAvailableSlot: "2026-05-11T09:00:00.000Z",
+  },
+  {
+    id: "p_2",
+    slug: "dr-youssef-el-idrissi",
+    name: "Dr. Youssef El Idrissi",
+    specialty: "Cardiology",
+    city: "Rabat",
+    address: "Agdal Medical Hub, Rabat",
+    consultationFee: 450,
+    videoConsultationFee: null,
+    acceptsVideoConsultation: false,
+    isVerified: true,
+    nextAvailableSlot: "2026-05-12T15:00:00.000Z",
+  },
+  {
+    id: "p_3",
+    slug: "dr-amina-benali",
+    name: "Dr. Amina Benali",
+    specialty: "Pediatrics",
+    city: "Casablanca",
+    address: "Palmier Avenue, Casablanca",
+    consultationFee: 280,
+    videoConsultationFee: 220,
+    acceptsVideoConsultation: true,
+    isVerified: true,
+    nextAvailableSlot: "2026-05-13T11:30:00.000Z",
+  },
+];
+
+const normalize = (value: string) => value.trim().toLowerCase();
+
+function searchStaticPractitioners(filters: SearchFiltersValue, requestedPage: number): ApiResponse {
+  const limit = 10;
+  const filtered = staticPractitioners
+    .filter((practitioner) => (!filters.city ? true : normalize(practitioner.city) === normalize(filters.city)))
+    .filter((practitioner) => (!filters.specialty ? true : normalize(practitioner.specialty) === normalize(filters.specialty)))
+    .filter((practitioner) => (!filters.video ? true : practitioner.acceptsVideoConsultation))
+    .filter((practitioner) => (!filters.minPrice ? true : practitioner.consultationFee >= Number(filters.minPrice)))
+    .filter((practitioner) => (!filters.maxPrice ? true : practitioner.consultationFee <= Number(filters.maxPrice)))
+    .filter((practitioner) => {
+      if (!filters.q) return true;
+      const q = normalize(filters.q);
+      return [practitioner.name, practitioner.specialty, practitioner.city, practitioner.address].join(" ").toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (filters.sort === "priceAsc") return a.consultationFee - b.consultationFee;
+      if (filters.sort === "priceDesc") return b.consultationFee - a.consultationFee;
+      const aTime = a.nextAvailableSlot ? new Date(a.nextAvailableSlot).getTime() : Number.MAX_SAFE_INTEGER;
+      const bTime = b.nextAvailableSlot ? new Date(b.nextAvailableSlot).getTime() : Number.MAX_SAFE_INTEGER;
+      return aTime - bTime;
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+  const safePage = Math.min(Math.max(1, requestedPage), totalPages);
+  const start = (safePage - 1) * limit;
+
+  return {
+    data: filtered.slice(start, start + limit),
+    pagination: { total: filtered.length, page: safePage, limit, totalPages },
+  };
+}
+
 const defaultFilters: SearchFiltersValue = {
   q: '',
   specialty: '',
@@ -81,6 +158,13 @@ function SearchPageContent() {
       try {
         const params = new URLSearchParams(searchParams.toString());
         if (!params.get('page')) params.set('page', String(page));
+
+        if (isGithubPagesPreview) {
+          const staticResponse = searchStaticPractitioners(toFilters(params), page);
+          setResults(staticResponse.data);
+          setPagination(staticResponse.pagination);
+          return;
+        }
 
         const response = await fetch(`/api/practitioners/search?${params.toString()}`, {
           signal: controller.signal,

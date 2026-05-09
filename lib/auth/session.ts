@@ -4,7 +4,7 @@ import { isUserRole } from "@/lib/auth/permissions";
 export type AuthSession = {
   userId: string;
   role: UserRole;
-  source: "demo-headers";
+  source: "demo-headers" | "github-pages-preview";
 };
 
 const DEMO_USER_ID_HEADER = "x-user-id";
@@ -46,6 +46,10 @@ export function readDemoSessionFromRequest(request: Request): AuthSession | null
 }
 
 export async function readDemoSessionFromServerHeaders(): Promise<AuthSession | null> {
+  if (process.env.GITHUB_PAGES === "true") {
+    return { userId: "github_pages_preview_admin", role: "ADMIN", source: "github-pages-preview" };
+  }
+
   const { headers } = await import("next/headers");
   const requestHeaders = await headers();
 

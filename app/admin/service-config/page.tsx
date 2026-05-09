@@ -24,7 +24,7 @@ function formatProvider(provider: string) {
 
 export default async function AdminServiceConfigPage() {
   await requireRolesForPage(["ADMIN"]);
-  const configs = await appConfigService.listServiceConfigurations();
+  const configs = process.env.GITHUB_PAGES === "true" ? [] : await appConfigService.listServiceConfigurations();
   const configByProvider = new Map(configs.map((config) => [config.provider, config]));
 
   return (
