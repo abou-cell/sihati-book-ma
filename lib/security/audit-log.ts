@@ -4,7 +4,8 @@ export type AuditAction =
   | "medical_document.upload"
   | "medical_document.download"
   | "medical_document.delete"
-  | "medical_document.access_denied";
+  | "medical_document.access_denied"
+  | "video_consultation.join_attempt";
 
 type AuditContext = {
   action: AuditAction;

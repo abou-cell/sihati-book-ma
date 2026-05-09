@@ -105,6 +105,7 @@ The service layer owns business logic and keeps route handlers thin.
 | `NotificationService` | `lib/services/notification.service.ts` | Notification payload preparation and status handling. |
 | `AppConfigService` | `lib/services/app-config.service.ts` | Admin-managed external provider configuration with encrypted secrets and masked previews. |
 | `PaymentService` | `lib/services/payment.service.ts` | Stripe Checkout creation, appointment payment eligibility checks, verified webhook event transitions, and duplicate event handling. |
+| `VideoConsultationService` | `lib/services/video-consultation.service.ts` | Server-side video room authorization, opaque room ID generation, short-lived room token signing, provider adapter handoff, and audit logging. |
 
 Service design rules:
 
@@ -251,35 +252,44 @@ Webhook processing uses `STRIPE_WEBHOOK_SECRET` and the raw request body. The ha
 
 ## 10. Video consultation flow
 
-Current implementation provides a protected consultation entry route and appointment-level authorization. Provider provisioning and signed room tokens remain production follow-up items.
+The consultation entry route is server-rendered and delegates all join decisions to `VideoConsultationService`. The service requires an authenticated user, loads the appointment from the repository, verifies that it is a confirmed `VIDEO` consultation, rejects cancelled/completed/expired appointments, and authorizes only the owning patient, assigned practitioner, or an admin.
 
 ```mermaid
 sequenceDiagram
   participant Patient
-  participant App as Sihati App
+  participant App as /consultation/{appointmentId}
   participant Auth
-  participant Appt as Appointment Service/Data
-  participant Video as Video Provider (future)
+  participant VideoSvc as VideoConsultationService
+  participant Repo as Appointment Repository
+  participant Adapter as Video Provider Adapter
 
-  Patient->>App: Open /consultation/{appointmentId}
-  App->>Auth: Require authenticated user
-  App->>Appt: Load appointment and consultation type
-  App->>App: Verify not cancelled and user owns/is assigned/admin
-  alt valid VIDEO appointment
-    App->>Video: Request signed/expiring room token (future)
+  Patient->>App: Open consultation entry
+  App->>Auth: Resolve signed session server-side
+  App->>VideoSvc: Request room access for appointment + actor
+  VideoSvc->>Repo: Load appointment
+  VideoSvc->>VideoSvc: Validate type, status, time window, and participant/admin authorization
+  alt valid confirmed VIDEO appointment
+    VideoSvc->>VideoSvc: Derive opaque room ID and sign short-lived room token
+    VideoSvc->>Adapter: Build provider-specific join/embed URLs
+    VideoSvc->>VideoSvc: Write sanitized audit event without token or PHI
+    VideoSvc-->>App: Return room access
     App-->>Patient: Render consultation room entry
   else invalid or unauthorized
-    App-->>Patient: Access denied / safe error
+    VideoSvc->>VideoSvc: Write sanitized denied audit event
+    App-->>Patient: Access denied
   end
 ```
 
 Production requirements:
 
-- Use unique room IDs that do not expose sensitive appointment data.
-- Generate short-lived room tokens server-side.
-- Prevent room reuse after cancellation or appointment completion.
-- Log join attempts without logging PHI or tokens.
-- Configure TURN/STUN or provider infrastructure for reliable WebRTC connectivity.
+- Keep provider-specific WebRTC implementation behind `VideoProviderAdapter`; the current adapter target is `CLOUDFLARE_STREAM_WEBRTC`.
+- Use opaque HMAC-derived room IDs (`sihati-v1-*`) that do not expose appointment IDs.
+- Generate short-lived signed room tokens server-side and never log or display token payloads.
+- Prevent room reuse after cancellation, completion, non-video appointment selection, or expiry of the appointment access window.
+- Log join attempts through audit logging with hashed identifiers only.
+- Configure TURN/STUN or provider infrastructure for reliable WebRTC connectivity before enabling production traffic.
+
+See `docs/video-consultation.md` for operational details and extension points.
 
 ## 11. Notification flow
 
