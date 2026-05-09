@@ -30,6 +30,8 @@ describe('environment validation', () => {
       STRIPE_WEBHOOK_SECRET: 'whsec_example',
       EMAIL_FROM: 'noreply@sihati.example',
       RESEND_API_KEY: 're_example',
+      RATE_LIMIT_REDIS_REST_URL: 'https://redis.example.com',
+      RATE_LIMIT_REDIS_REST_TOKEN: 'redis-token',
     });
 
     await expect(importEnvModule()).rejects.toThrow(
@@ -62,6 +64,8 @@ describe('environment validation', () => {
       STRIPE_WEBHOOK_SECRET: 'whsec_example',
       EMAIL_FROM: 'noreply@sihati.example',
       RESEND_API_KEY: 're_example',
+      RATE_LIMIT_REDIS_REST_URL: 'https://redis.example.com',
+      RATE_LIMIT_REDIS_REST_TOKEN: 'redis-token',
     });
 
     await expect(importEnvModule()).resolves.toMatchObject({

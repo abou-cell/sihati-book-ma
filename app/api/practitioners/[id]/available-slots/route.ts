@@ -2,7 +2,7 @@ import { PrismaAvailabilityRepository } from "@/lib/repositories/availability.re
 import { mockAvailabilityRepository } from "@/lib/repositories/mock/availability.repository";
 import { PrismaPractitionerRepository, type PractitionerPublicRecord } from "@/lib/repositories/practitioner.repository";
 import { AppError, safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
-import { buildRateLimitKey, enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rate-limit";
 import { AvailabilityService } from "@/lib/services/availability.service";
 import { availableSlotsQuerySchema } from "@/lib/validators/available-slots";
 
@@ -35,7 +35,7 @@ async function getPractitioner(id: string): Promise<PractitionerPublicRecord | n
 }
 
 export const GET = withErrorHandling(async (request: Request, context?: { params?: Promise<Record<string, string>> }) => {
-  enforceRateLimit({ key: buildRateLimitKey("available-slots", request), limit: 120, windowMs: 60_000 });
+  await enforceRateLimit({ scope: "available-slots", request, ...rateLimitPolicies.publicSearch });
 
   const params = context?.params ? await context.params : {};
   const id = params.id;

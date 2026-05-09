@@ -2,7 +2,7 @@ import { AppointmentError, AppointmentService } from "@/lib/services/appointment
 import { PrismaAppointmentRepository } from "@/lib/repositories/appointment.repository";
 import { assertSameOrigin, requireUserContext } from "@/lib/security/access-control";
 import { AppError, safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
-import { buildRateLimitKey, enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rate-limit";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
 
 const service = new AppointmentService(new PrismaAppointmentRepository());
@@ -20,7 +20,7 @@ export const POST = withErrorHandling(async (request: Request) => {
   assertSameOrigin(request);
   const { userId } = requireUserContext(request, ["PATIENT"]);
 
-  enforceRateLimit({ key: buildRateLimitKey("booking", request, userId), limit: 10, windowMs: 60_000 });
+  await enforceRateLimit({ scope: "appointment-create", request, userId, ...rateLimitPolicies.appointmentCreate });
 
   const body = await request.json();
   const payload = createAppointmentSchema.parse(body);

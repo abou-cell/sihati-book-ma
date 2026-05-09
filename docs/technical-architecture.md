@@ -75,22 +75,23 @@ API handlers live in `app/api/**/route.ts` and use a consistent shape:
 
 1. Apply authentication/authorization where needed.
 2. Apply same-origin checks for browser-originating mutations.
-3. Parse query/body data through Zod validators.
-4. Delegate business rules to services.
-5. Return sanitized JSON through shared error helpers.
+3. Apply route-specific rate limits through `lib/security/rate-limit.ts`.
+4. Parse query/body data through Zod validators.
+5. Delegate business rules to services.
+6. Return sanitized JSON through shared error helpers.
 
 Current API routes include:
 
 | Route | Status | Main responsibility |
 | --- | --- | --- |
-| `GET /api/practitioners/search` | Public | Search practitioners with validated filters. |
-| `GET /api/practitioners/[id]/available-slots` | Public | Generate available appointment slots. |
-| `POST /api/appointments` | Protected | Create appointments for authenticated patients. |
-| `GET /api/medical-documents` | Protected placeholder | Reserved until storage rules are complete. |
-| `POST /api/payments/checkout` | Protected placeholder | Reserved until verified Stripe checkout exists. |
-| `POST /api/stripe/webhook` | Provider endpoint placeholder | Reserved for Stripe signature-verified webhooks. |
-| `GET/POST/PATCH /api/admin/service-config` | Admin only | Manage external service configuration records. |
-| `GET /api/reviews` | Placeholder | Reserved for review data. |
+| `GET /api/practitioners/search` | Public | Search practitioners with validated filters and a safe public search rate limit. |
+| `GET /api/practitioners/[id]/available-slots` | Public | Generate available appointment slots with a safe public lookup rate limit. |
+| `POST /api/appointments` | Protected | Create appointments for authenticated patients with a medium per-user/IP creation limit. |
+| `GET /api/medical-documents` | Protected placeholder | Reserved until storage rules are complete; guarded by strict per-user/IP limits. |
+| `POST /api/payments/checkout` | Protected placeholder | Reserved until verified Stripe checkout exists; guarded by a provider-safe checkout limit. |
+| `POST /api/stripe/webhook` | Provider endpoint placeholder | Reserved for Stripe signature-verified webhooks; guarded by an IP-scoped provider endpoint limit. |
+| `GET/POST/PATCH /api/admin/service-config` | Admin only | Manage external service configuration records; mutations use a medium admin per-user/IP limit. |
+| `GET /api/reviews` | Placeholder | Reserved for review data with public rate limiting. |
 
 ## 4. Service layer
 
@@ -181,7 +182,28 @@ Production auth requirements:
 - Re-check ownership server-side for appointment creation/access, consultation access, medical documents, and admin service configuration.
 - Preserve same-origin checks on browser-initiated state-changing routes.
 
-## 7. Role-based access control
+
+## 7. Shared rate limiting
+
+Sihati centralizes route limits in `lib/security/rate-limit.ts`. The limiter exposes one API for route handlers and two adapters:
+
+- Local/test: an in-memory adapter for deterministic development and unit tests.
+- Production: a Redis/Upstash REST-compatible adapter using `RATE_LIMIT_REDIS_REST_URL` and `RATE_LIMIT_REDIS_REST_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`).
+
+Production fails closed with `RATE_LIMIT_NOT_CONFIGURED` when shared Redis/Upstash settings are missing. Limiter keys include the route scope, authenticated user ID when available, and client IP address; user IDs and IP addresses are hashed before storage. Route handlers should return only the shared safe `RATE_LIMITED` JSON response for exceeded limits.
+
+Current route policy classes:
+
+| Policy | Applied to | Limit |
+| --- | --- | --- |
+| Strict auth/session-sensitive | Medical document access, admin configuration reads, and other session-sensitive endpoints | 10/minute |
+| Appointment creation | `POST /api/appointments` | 10/minute |
+| Admin config mutation | `POST/PATCH /api/admin/service-config` | 20/minute |
+| Public search/lookup | Practitioner search, available slots, reviews | 120/minute |
+| Provider checkout | `POST /api/payments/checkout` | 30/minute |
+| Provider webhook | `POST /api/stripe/webhook` | 120/minute |
+
+## 8. Role-based access control
 
 Roles are defined as:
 
@@ -201,7 +223,7 @@ Permissions are centralized in `lib/auth/permissions.ts` and enforced with helpe
 | Access admin service configuration | No | No | Yes |
 | Validate/manage practitioner catalog | No | No | Yes |
 
-## 8. Video consultation flow
+## 9. Video consultation flow
 
 Current implementation provides a protected consultation entry route and appointment-level authorization. Provider provisioning and signed room tokens remain production follow-up items.
 
@@ -233,7 +255,7 @@ Production requirements:
 - Log join attempts without logging PHI or tokens.
 - Configure TURN/STUN or provider infrastructure for reliable WebRTC connectivity.
 
-## 9. Notification flow
+## 10. Notification flow
 
 Notifications are modeled with channel, status, type, recipient, subject, message, sent time, and metadata. The current service foundation should remain provider-independent until SMTP/SMS/push providers are configured.
 
@@ -262,7 +284,7 @@ Production requirements:
 - Avoid sending secrets, tokens, or unnecessary health data in messages.
 - Keep provider credentials in encrypted service configuration or server-only environment variables.
 
-## 10. Admin service configuration flow
+## 11. Admin service configuration flow
 
 Admin-managed configuration stores metadata plainly and secret bags encrypted with `APP_ENCRYPTION_KEY`. API responses return masked secret previews only.
 
@@ -306,7 +328,7 @@ Operational rules:
 - Treat service configuration as runtime configuration, not as a feature implementation.
 - Log admin actions with actor IDs and provider names, not secret values.
 
-## 11. Environment variables
+## 12. Environment variables
 
 Runtime validation is centralized in `lib/env.ts`. Copy `.env.example` to `.env.local` for local development and provide real values through the deployment platform for production.
 
@@ -321,6 +343,8 @@ Runtime validation is centralized in `lib/env.ts`. Copy `.env.example` to `.env.
 | `STRIPE_WEBHOOK_SECRET` | Server | Required when payments are active | Stripe webhook signature secret. |
 | `EMAIL_FROM` | Server | Required when email is active | Verified outbound sender address. |
 | `RESEND_API_KEY` | Server | Required when email is active | Resend/provider API key placeholder. |
+| `RATE_LIMIT_REDIS_REST_URL` | Server | Required | Redis/Upstash REST endpoint for shared production rate limiting. |
+| `RATE_LIMIT_REDIS_REST_TOKEN` | Server | Required | Bearer token for the shared production rate limiter. |
 
 Generate production secrets with secure tooling, for example:
 
@@ -329,7 +353,7 @@ openssl rand -base64 32
 openssl rand -hex 32
 ```
 
-## 12. Folder structure
+## 13. Folder structure
 
 ```text
 app/                         Next.js App Router pages and API route handlers
@@ -348,7 +372,7 @@ prisma/                      Prisma schema and future migrations
 tests/                       Unit and API tests
 ```
 
-## 13. Production architecture target
+## 14. Production architecture target
 
 For production, the recommended deployment topology is:
 
@@ -359,6 +383,7 @@ flowchart TD
   CDN --> ALB[Application Load Balancer]
   ALB --> App[EC2/ECS/Node Next.js Runtime]
   App --> RDS[(RDS PostgreSQL)]
+  App --> Redis[(Redis/Upstash rate limit store)]
   App --> S3[(S3 private assets/backups)]
   App --> Stripe[Stripe]
   App --> AuthProvider[Firebase Auth or session provider]

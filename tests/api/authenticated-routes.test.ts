@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as getMedicalDocuments } from "@/app/api/medical-documents/route";
 import { POST as postCheckout } from "@/app/api/payments/checkout/route";
@@ -10,8 +10,17 @@ function bearerHeaders(userId: string, role: "PATIENT" | "PRACTITIONER" | "ADMIN
   return { authorization: `Bearer ${createSignedSessionToken({ userId, role })}` };
 }
 
+beforeEach(() => {
+  vi.stubEnv("RATE_LIMIT_REDIS_REST_URL", "https://redis.example.com");
+  vi.stubEnv("RATE_LIMIT_REDIS_REST_TOKEN", "redis-token");
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify([{ result: 1 }, { result: 1 }, { result: 60 }]), { status: 200 }),
+  );
+});
+
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe("protected API authentication", () => {

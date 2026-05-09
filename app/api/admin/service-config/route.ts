@@ -2,6 +2,7 @@ import { appConfigService } from "@/lib/services/app-config.service";
 import { requireCurrentUserForApi } from "@/lib/auth/current-user";
 import { assertSameOrigin } from "@/lib/security/access-control";
 import { safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
+import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rate-limit";
 import { toggleServiceConfigSchema, upsertServiceConfigSchema } from "@/lib/validators/service-config";
 
 function logAdminConfigRequest(event: string, payload: { actorUserId: string; provider?: unknown }) {
@@ -17,7 +18,8 @@ function logAdminConfigRequest(event: string, payload: { actorUserId: string; pr
 }
 
 export const GET = withErrorHandling(async (request: Request) => {
-  requireCurrentUserForApi(request, ["ADMIN"]);
+  const currentUser = requireCurrentUserForApi(request, ["ADMIN"]);
+  await enforceRateLimit({ scope: "admin-service-config-read", request, userId: currentUser.userId, ...rateLimitPolicies.strict });
 
   const configs = await appConfigService.listServiceConfigurations();
   return safeJsonResponse({ configs, providers: appConfigService.getSupportedProviders() });
@@ -26,6 +28,7 @@ export const GET = withErrorHandling(async (request: Request) => {
 export const POST = withErrorHandling(async (request: Request) => {
   assertSameOrigin(request);
   const currentUser = requireCurrentUserForApi(request, ["ADMIN"]);
+  await enforceRateLimit({ scope: "admin-service-config", request, userId: currentUser.userId, ...rateLimitPolicies.adminMutation });
   const body = await request.json();
   logAdminConfigRequest("service_config.upsert.request", { actorUserId: currentUser.userId, provider: body?.provider });
   const payload = upsertServiceConfigSchema.parse(body);
@@ -37,6 +40,7 @@ export const POST = withErrorHandling(async (request: Request) => {
 export const PATCH = withErrorHandling(async (request: Request) => {
   assertSameOrigin(request);
   const currentUser = requireCurrentUserForApi(request, ["ADMIN"]);
+  await enforceRateLimit({ scope: "admin-service-config", request, userId: currentUser.userId, ...rateLimitPolicies.adminMutation });
   const body = await request.json();
   logAdminConfigRequest("service_config.toggle.request", { actorUserId: currentUser.userId, provider: body?.provider });
   const payload = toggleServiceConfigSchema.parse(body);
