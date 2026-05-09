@@ -112,7 +112,9 @@ describe("signed production sessions", () => {
     expect(() => getCurrentUserFromRequest(invalidRequest)).toThrow(AppError);
 
     const token = createSignedSessionToken({ userId: "patient_1", role: "PATIENT" });
-    const tamperedRequest = new Request("https://sihati.test/api", { headers: { authorization: `Bearer ${token.replace(/.$/, "x")}` } });
+    const [version, payload, signature] = token.split(".");
+    const tamperedToken = `${version}.${payload?.slice(0, -2)}xx.${signature}`;
+    const tamperedRequest = new Request("https://sihati.test/api", { headers: { authorization: `Bearer ${tamperedToken}` } });
     expect(() => getCurrentUserFromRequest(tamperedRequest)).toThrow(AppError);
 
     const expiredToken = createSignedSessionToken({ userId: "patient_1", role: "PATIENT" }, { now: new Date("2026-01-01T00:00:00.000Z"), ttlSeconds: 1 });
@@ -144,5 +146,7 @@ describe("resource access helpers", () => {
     expect(canAccessMedicalDocument({ userId: "patient_2", role: "PATIENT", source: "signed-session-cookie" }, document)).toBe(false);
     expect(canAccessMedicalDocument({ userId: "practitioner_1", role: "PRACTITIONER", source: "signed-session-cookie" }, document)).toBe(true);
     expect(canAccessMedicalDocument({ userId: "admin_1", role: "ADMIN", source: "signed-session-cookie" }, document)).toBe(true);
+    expect(canAccessMedicalDocument({ userId: "practitioner_2", role: "PRACTITIONER", source: "signed-session-cookie" }, { ...document, appointment: { practitionerId: "practitioner_2" } })).toBe(true);
+    expect(canAccessMedicalDocument({ userId: "patient_1", role: "PATIENT", source: "signed-session-cookie" }, { ...document, deletedAt: new Date() })).toBe(false);
   });
 });

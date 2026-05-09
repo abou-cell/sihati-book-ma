@@ -35,7 +35,7 @@ describe('environment validation', () => {
     });
 
     await expect(importEnvModule()).rejects.toThrow(
-      'Missing required production environment variables: APP_ENCRYPTION_KEY',
+      'Missing required production environment variables: APP_ENCRYPTION_KEY, MEDICAL_DOCUMENTS_SIGNING_SECRET',
     );
   });
 
@@ -66,6 +66,7 @@ describe('environment validation', () => {
       RESEND_API_KEY: 're_example',
       RATE_LIMIT_REDIS_REST_URL: 'https://redis.example.com',
       RATE_LIMIT_REDIS_REST_TOKEN: 'redis-token',
+      MEDICAL_DOCUMENTS_SIGNING_SECRET: 'medical-documents-signing-secret-32',
     });
 
     await expect(importEnvModule()).resolves.toMatchObject({

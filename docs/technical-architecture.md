@@ -425,3 +425,15 @@ Minimum release gates:
 - Secrets stored outside Git.
 - Backups and restore procedure validated.
 - `npm run check` and `npm run build` passing in CI.
+
+## Medical document storage architecture
+
+Sihati stores medical document metadata in PostgreSQL and stores file bytes only in a private object store or private server-side volume. The `MedicalDocument` record includes the owning patient, optional practitioner share, optional appointment link, storage provider, opaque object key, MIME type, byte size, SHA-256 checksum, lifecycle status, creation time, and soft-delete timestamp. Application responses expose metadata and short-lived signed URLs only after authorization; object keys are treated as internal implementation details and are never public routes.
+
+The `/api/medical-documents` API uses the service/repository pattern: the route authenticates, rate limits, validates request shape, and delegates policy to `lib/services/medical-document.service.ts`. The service validates uploads, creates private object keys under patient-scoped prefixes, asks the storage signer for short-lived upload/download URLs, and writes sanitized audit events. Direct public serving of medical document objects is not part of the architecture.
+
+Access is intentionally narrow:
+
+- Patients may list, upload, download, and soft-delete their own documents.
+- Practitioners may access documents explicitly shared to their practitioner ID or linked to an appointment they own.
+- Administrators may list metadata for support/compliance. Download access is disabled unless `MEDICAL_DOCUMENT_ADMIN_DOWNLOADS_ENABLED=true` and a documented access reason is supplied for a break-glass workflow.

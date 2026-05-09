@@ -1,5 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/services/medical-document.service", () => ({
+  listAccessibleMedicalDocuments: vi.fn(async (currentUser: { role: string; userId: string }, patientId?: string) => {
+    if (currentUser.role === "PATIENT" && patientId && patientId !== currentUser.userId) {
+      const { AppError } = await import("@/lib/security/errors");
+      throw new AppError("MEDICAL_DOCUMENT_ACCESS_DENIED", 403, "Access denied");
+    }
+    return [];
+  }),
+  createMedicalDocumentUpload: vi.fn(),
+  deleteMedicalDocument: vi.fn(),
+  getMedicalDocumentDownload: vi.fn(),
+}));
+
 import { GET as getMedicalDocuments } from "@/app/api/medical-documents/route";
 import { POST as postCheckout } from "@/app/api/payments/checkout/route";
 import { createSignedSessionToken } from "@/lib/auth/session";
@@ -57,8 +70,8 @@ describe("protected API authentication", () => {
     const response = await getMedicalDocuments(new Request("https://sihati.test/api/medical-documents", { headers: bearerHeaders(userId, role) }));
     const body = await response.json();
 
-    expect(response.status).toBe(501);
-    expect(body.error.code).toBe("MEDICAL_DOCUMENTS_NOT_IMPLEMENTED");
+    expect(response.status).toBe(200);
+    expect(body.data.documents).toEqual([]);
   });
 
   it("returns 403 when a valid role is not allowed for a route", async () => {

@@ -122,3 +122,11 @@ Database access should continue through Prisma repositories and Zod validators. 
 5. Configure and monitor the shared Redis/Upstash production rate limiter (`RATE_LIMIT_REDIS_REST_URL` and `RATE_LIMIT_REDIS_REST_TOKEN`).
 6. Add integration tests for patient/practitioner/admin access to every protected API and route.
 7. Add audit logs for appointment creation, cancellation, video-room joins, admin actions, and permission denials.
+
+## Medical document security controls
+
+Medical files must remain in private storage. The application creates opaque object keys and returns only short-lived signed upload/download URLs after `PATIENT`, `PRACTITIONER`, or documented admin authorization checks pass. Public buckets, public object ACLs, CDN public origins, and long-lived document URLs are prohibited for medical documents.
+
+Upload validation is centralized in `lib/security/upload.ts` and enforces an allowlist of PDF, JPEG, and PNG MIME types, matching file extensions, blocked executable/script extensions, safe normalized filenames, maximum size, and SHA-256 checksum format. The API should add malware scanning before marking documents `AVAILABLE` in production storage workflows.
+
+Operational logging must never include PHI, file contents, raw object keys, signed URLs, authorization tokens, cookies, or checksum values. Medical-document audit logs record event type, role, hashed identifiers, request ID, and non-PHI denial reasons for upload, download, delete, and access-denied events.

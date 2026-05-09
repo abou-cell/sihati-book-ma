@@ -58,6 +58,17 @@ enum PaymentStatus {
   EXPIRED
 }
 
+enum MedicalDocumentStorageProvider {
+  S3_PRIVATE
+  LOCAL_PRIVATE
+}
+
+enum MedicalDocumentStatus {
+  PENDING_UPLOAD
+  AVAILABLE
+  DELETED
+}
+
 model User {
   id           String   @id @default(cuid())
   role         UserRole
@@ -67,27 +78,29 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  patientAppointments Appointment[] @relation("PatientAppointments")
+  patientAppointments Appointment[]     @relation("PatientAppointments")
   payments            Payment[]
+  medicalDocuments    MedicalDocument[] @relation("PatientMedicalDocuments")
 }
 
 model Practitioner {
-  id                       String   @id
+  id                       String    @id
   name                     String
   specialty                String
   city                     String
   clinic                   String?
   consultationFee          Int?
-  isVerified               Boolean  @default(false)
-  acceptsVideoConsultation Boolean  @default(false)
+  isVerified               Boolean   @default(false)
+  acceptsVideoConsultation Boolean   @default(false)
   nextAvailableSlot        DateTime?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  reasons      ConsultationReason[]
-  rules        AvailabilityRule[]
-  blockedDates BlockedDate[]
-  appointments Appointment[]
+  reasons                ConsultationReason[]
+  rules                  AvailabilityRule[]
+  blockedDates           BlockedDate[]
+  appointments           Appointment[]
+  sharedMedicalDocuments MedicalDocument[]    @relation("PractitionerSharedMedicalDocuments")
 }
 
 model ConsultationReason {
@@ -99,7 +112,7 @@ model ConsultationReason {
   isVideoEnabled      Boolean @default(false)
   slotDurationMinutes Int
 
-  practitioner Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  practitioner Practitioner  @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
   appointments Appointment[]
 }
 
@@ -118,7 +131,7 @@ model AvailabilityRule {
 }
 
 model BlockedDate {
-  id             String @id
+  id             String  @id
   practitionerId String
   date           String
   reason         String?
@@ -138,14 +151,41 @@ model Appointment {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  patient       User               @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Restrict)
-  practitioner  Practitioner       @relation(fields: [practitionerId], references: [id], onDelete: Restrict)
-  reason        ConsultationReason @relation(fields: [reasonId], references: [id], onDelete: Restrict)
-  notifications Notification[]
-  payments      Payment[]
+  patient          User               @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Restrict)
+  practitioner     Practitioner       @relation(fields: [practitionerId], references: [id], onDelete: Restrict)
+  reason           ConsultationReason @relation(fields: [reasonId], references: [id], onDelete: Restrict)
+  notifications    Notification[]
+  payments         Payment[]
+  medicalDocuments MedicalDocument[]
 
   @@index([practitionerId, startTime])
   @@index([patientId, status])
+}
+
+model MedicalDocument {
+  id              String                         @id @default(cuid())
+  patientId       String
+  practitionerId  String?
+  appointmentId   String?
+  storageProvider MedicalDocumentStorageProvider
+  objectKey       String                         @unique
+  fileName        String
+  mimeType        String
+  sizeBytes       Int
+  checksum        String
+  status          MedicalDocumentStatus          @default(PENDING_UPLOAD)
+  createdAt       DateTime                       @default(now())
+  updatedAt       DateTime                       @updatedAt
+  deletedAt       DateTime?
+
+  patient      User          @relation("PatientMedicalDocuments", fields: [patientId], references: [id], onDelete: Restrict)
+  practitioner Practitioner? @relation("PractitionerSharedMedicalDocuments", fields: [practitionerId], references: [id], onDelete: Restrict)
+  appointment  Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+
+  @@index([patientId, status, createdAt])
+  @@index([practitionerId, status])
+  @@index([appointmentId])
+  @@index([deletedAt])
 }
 
 model Payment {
@@ -185,7 +225,7 @@ model PaymentWebhookEvent {
 }
 
 model Notification {
-  id            String             @id
+  id            String              @id
   appointmentId String
   channel       NotificationChannel
   type          NotificationType?
@@ -198,6 +238,7 @@ model Notification {
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 }
+
 enum ExternalServiceProvider {
   STRIPE
   CLOUDFLARE_STREAM_WEBRTC

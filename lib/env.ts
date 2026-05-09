@@ -38,6 +38,10 @@ const serverEnvSchema = z.object({
   RATE_LIMIT_REDIS_REST_TOKEN: z.string().min(1).optional(),
   UPSTASH_REDIS_REST_URL: z.url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+  MEDICAL_DOCUMENTS_STORAGE_PROVIDER: z.enum(['S3_PRIVATE', 'LOCAL_PRIVATE']).default('LOCAL_PRIVATE'),
+  MEDICAL_DOCUMENTS_STORAGE_BASE_URL: z.url().optional(),
+  MEDICAL_DOCUMENTS_SIGNING_SECRET: z.string().min(32).optional(),
+  MEDICAL_DOCUMENT_ADMIN_DOWNLOADS_ENABLED: z.enum(['true', 'false']).default('false'),
 });
 
 type ParsedServerEnv = z.infer<typeof serverEnvSchema>;
@@ -96,6 +100,7 @@ function assertRequiredInProduction(
     'STRIPE_WEBHOOK_SECRET',
     'EMAIL_FROM',
     'RESEND_API_KEY',
+    'MEDICAL_DOCUMENTS_SIGNING_SECRET',
   ];
 
   const missing = requiredInProduction.filter((key) => {
