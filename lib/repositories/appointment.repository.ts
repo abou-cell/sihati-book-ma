@@ -3,7 +3,18 @@ import { AppointmentError, type AppointmentStatus } from "@/lib/services/appoint
 
 type Practitioner = { id: string; isVerified: boolean; name: string; specialty: string; city: string };
 type ConsultationReason = { id: string; practitionerId: string; label: string; inPersonPrice: number; videoPrice: number | null; isVideoEnabled: boolean; slotDurationMinutes: number };
-type Appointment = { id: string; patientId: string; practitionerId: string; reasonId: string; consultationType: "IN_PERSON" | "VIDEO"; startTime: string; endTime: string; status: AppointmentStatus };
+type Appointment = {
+  id: string;
+  patientId: string;
+  practitionerId: string;
+  reasonId: string;
+  consultationType: "IN_PERSON" | "VIDEO";
+  startTime: string;
+  endTime: string;
+  status: AppointmentStatus;
+  patient?: { fullName: string; email: string };
+  practitioner?: { fullName: string; specialty: string; email?: string | null };
+};
 type Notification = { id: string; appointmentId: string; channel: "PUSH" | "EMAIL"; status: "PENDING" };
 type PersistedAppointment = Omit<Appointment, "startTime" | "endTime"> & { startTime: Date; endTime: Date };
 type AppointmentTransactionClient = {
@@ -14,6 +25,7 @@ type AppointmentTransactionClient = {
 };
 
 export interface AppointmentRepository {
+  findAppointmentById(id: string): Promise<Appointment | null>;
   getPractitionerById(id: string): Promise<Practitioner | null>;
   getReasonById(id: string): Promise<ConsultationReason | null>;
   findActiveAppointmentBySlot(practitionerId: string, startTime: string): Promise<Appointment | null>;
@@ -22,6 +34,23 @@ export interface AppointmentRepository {
 }
 
 export class PrismaAppointmentRepository implements AppointmentRepository {
+  async findAppointmentById(id: string): Promise<Appointment | null> {
+    const found = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        patient: { select: { fullName: true, email: true } },
+        practitioner: { select: { name: true, specialty: true } },
+      },
+    });
+    return found
+      ? {
+          ...found,
+          startTime: found.startTime.toISOString(),
+          endTime: found.endTime.toISOString(),
+          practitioner: { fullName: found.practitioner.name, specialty: found.practitioner.specialty },
+        }
+      : null;
+  }
   async getPractitionerById(id: string): Promise<Practitioner | null> {
     return prisma.practitioner.findUnique({ where: { id }, select: { id: true, isVerified: true, name: true, specialty: true, city: true } });
   }
