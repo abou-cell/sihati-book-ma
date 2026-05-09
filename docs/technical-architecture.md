@@ -1,6 +1,6 @@
 # Sihati Technical Architecture
 
-Sihati is a Next.js and TypeScript medical appointment booking platform for patient booking, practitioner availability, admin configuration, payments placeholders, notifications, and video consultation entry points. This document describes the production-oriented architecture as it exists today and the operational boundaries that must be preserved during stabilization.
+Sihati is a Next.js and TypeScript medical appointment booking platform for patient booking, practitioner availability, admin configuration, secure Stripe payments, notifications, and video consultation entry points. This document describes the production-oriented architecture as it exists today and the operational boundaries that must be preserved during stabilization.
 
 ## 1. Global architecture
 
@@ -38,7 +38,7 @@ flowchart TD
   Services --> Repos
   Repos --> Prisma
   Prisma --> DB
-  Services -. configuration / future integrations .-> Providers
+  Services --> Providers
 ```
 
 ## 2. Frontend architecture
@@ -88,8 +88,8 @@ Current API routes include:
 | `GET /api/practitioners/[id]/available-slots` | Public | Generate available appointment slots with a safe public lookup rate limit. |
 | `POST /api/appointments` | Protected | Create appointments for authenticated patients with a medium per-user/IP creation limit. |
 | `GET /api/medical-documents` | Protected placeholder | Reserved until storage rules are complete; guarded by strict per-user/IP limits. |
-| `POST /api/payments/checkout` | Protected placeholder | Reserved until verified Stripe checkout exists; guarded by a provider-safe checkout limit. |
-| `POST /api/stripe/webhook` | Provider endpoint placeholder | Reserved for Stripe signature-verified webhooks; guarded by an IP-scoped provider endpoint limit. |
+| `POST /api/payments/checkout` | Protected | Creates Stripe Checkout Sessions for authenticated patient-owned pending appointments. |
+| `POST /api/stripe/webhook` | Provider endpoint | Verifies Stripe signatures over the raw body and processes idempotent payment events. |
 | `GET/POST/PATCH /api/admin/service-config` | Admin only | Manage external service configuration records; mutations use a medium admin per-user/IP limit. |
 | `GET /api/reviews` | Placeholder | Reserved for review data with public rate limiting. |
 
@@ -104,6 +104,7 @@ The service layer owns business logic and keeps route handlers thin.
 | `PractitionerSearchService` | `lib/services/practitioner-search.service.ts` | Practitioner search orchestration. |
 | `NotificationService` | `lib/services/notification.service.ts` | Notification payload preparation and status handling. |
 | `AppConfigService` | `lib/services/app-config.service.ts` | Admin-managed external provider configuration with encrypted secrets and masked previews. |
+| `PaymentService` | `lib/services/payment.service.ts` | Stripe Checkout creation, appointment payment eligibility checks, verified webhook event transitions, and duplicate event handling. |
 
 Service design rules:
 
@@ -223,7 +224,32 @@ Permissions are centralized in `lib/auth/permissions.ts` and enforced with helpe
 | Access admin service configuration | No | No | Yes |
 | Validate/manage practitioner catalog | No | No | Yes |
 
-## 9. Video consultation flow
+
+## 9. Payment flow
+
+Stripe payments are linked directly to appointment booking. Video appointments are created as `PENDING`; the checkout API re-loads the appointment server-side, verifies that the authenticated patient owns it, verifies it remains payable, derives the amount from the consultation reason, and creates a Stripe Checkout Session using `STRIPE_SECRET_KEY`. The browser is redirected to Stripe but is never trusted to confirm payment.
+
+```mermaid
+sequenceDiagram
+  participant Patient
+  participant API as /api/payments/checkout
+  participant Payment as PaymentService
+  participant DB as PostgreSQL
+  participant Stripe
+
+  Patient->>API: POST appointmentId with signed session
+  API->>Payment: createCheckoutSession(userId, appointmentId)
+  Payment->>DB: Load appointment + reason/practitioner
+  Payment->>Payment: Verify owner, PENDING status, future start, server price
+  Payment->>DB: Upsert/create Payment with idempotency key
+  Payment->>Stripe: Create Checkout Session with server metadata
+  Payment->>DB: Store session/payment-intent identifiers
+  API-->>Patient: Checkout URL
+```
+
+Webhook processing uses `STRIPE_WEBHOOK_SECRET` and the raw request body. The handler records every Stripe event ID before applying state changes, so a repeated provider event returns a duplicate result without updating the same payment twice. `checkout.session.completed` and `payment_intent.succeeded` mark the payment `SUCCEEDED` and confirm the pending appointment in a transaction. `payment_intent.payment_failed` marks the payment `FAILED`; `checkout.session.expired` marks it `EXPIRED`. Failed and expired events do not cancel or confirm appointments.
+
+## 10. Video consultation flow
 
 Current implementation provides a protected consultation entry route and appointment-level authorization. Provider provisioning and signed room tokens remain production follow-up items.
 
@@ -255,7 +281,7 @@ Production requirements:
 - Log join attempts without logging PHI or tokens.
 - Configure TURN/STUN or provider infrastructure for reliable WebRTC connectivity.
 
-## 10. Notification flow
+## 11. Notification flow
 
 Notifications are modeled with channel, status, type, recipient, subject, message, sent time, and metadata. The current service foundation should remain provider-independent until SMTP/SMS/push providers are configured.
 
