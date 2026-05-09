@@ -14,7 +14,10 @@ export type AppointmentAccessRecord = {
 
 export type MedicalDocumentAccessRecord = {
   patientId: string;
+  practitionerId?: string | null;
   practitionerIds?: readonly string[];
+  appointment?: { practitionerId: string } | null;
+  deletedAt?: Date | string | null;
 };
 
 export function getUserContext(request: Request): CurrentUser {
@@ -59,9 +62,16 @@ export function assertCanAccessVideoConsultation(currentUser: CurrentUser, appoi
 }
 
 export function canAccessMedicalDocument(currentUser: CurrentUser, document: MedicalDocumentAccessRecord): boolean {
+  if (document.deletedAt) return false;
   if (currentUser.role === "ADMIN") return true;
   if (currentUser.role === "PATIENT") return currentUser.userId === document.patientId;
-  if (currentUser.role === "PRACTITIONER") return document.practitionerIds?.includes(currentUser.userId) ?? false;
+  if (currentUser.role === "PRACTITIONER") {
+    return (
+      document.practitionerId === currentUser.userId ||
+      document.appointment?.practitionerId === currentUser.userId ||
+      document.practitionerIds?.includes(currentUser.userId) === true
+    );
+  }
   return false;
 }
 

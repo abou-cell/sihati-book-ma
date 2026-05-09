@@ -28,7 +28,7 @@ describe("upload validation helper", () => {
 
     expect(() => validateUploadMeta({ fileName: "malware.exe", mimeType: "application/pdf", sizeBytes: 1024 })).toThrow(AppError);
     expect(() => validateUploadMeta({ fileName: "report.svg", mimeType: "image/svg+xml", sizeBytes: 1024 })).toThrow(AppError);
-    expect(() => validateUploadMeta({ fileName: "large.pdf", mimeType: "application/pdf", sizeBytes: 6 * 1024 * 1024 })).toThrow(AppError);
+    expect(() => validateUploadMeta({ fileName: "large.pdf", mimeType: "application/pdf", sizeBytes: 11 * 1024 * 1024 })).toThrow(AppError);
   });
 });
 
