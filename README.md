@@ -21,6 +21,7 @@ The repository now includes a complete technical, deployment, and operations doc
 - [Security hardening guide](docs/security.md)
 - [Authentication and authorization](docs/authentication.md)
 - [Admin-managed service configuration](docs/service-configuration.md)
+- [Stripe payments](docs/payments.md)
 - [Testing guide](docs/testing.md)
 - [Local validation guide](docs/local-testing.md)
 - [Docker guide](docs/docker.md)
@@ -58,8 +59,8 @@ Runtime environment validation is implemented with Zod in `lib/env.ts`, and app 
 | `DATABASE_URL` | Server-only | Optional now | Yes | Database connection string for backend modules. |
 | `AUTH_SECRET` | Server-only | Optional now | Yes | Secret used for auth signing/encryption (future module). |
 | `APP_ENCRYPTION_KEY` | Server-only | Optional now | Yes | Base64-encoded 32-byte key for production encryption of sensitive application data. |
-| `STRIPE_SECRET_KEY` | Server-only | Optional now | Yes | Stripe secret key (future payment module). |
-| `STRIPE_WEBHOOK_SECRET` | Server-only | Optional now | Yes | Stripe webhook verification secret (future payment module). |
+| `STRIPE_SECRET_KEY` | Server-only | Optional for non-payment local work | Yes | Stripe secret key used only server-side to create Checkout Sessions. |
+| `STRIPE_WEBHOOK_SECRET` | Server-only | Optional for non-payment local work | Yes | Stripe webhook signing secret used to verify raw webhook payloads. |
 | `EMAIL_FROM` | Server-only | Optional now | Yes | Default sender address (future email module). |
 | `RESEND_API_KEY` | Server-only | Optional now | Yes | Resend API key (future email module). |
 
@@ -73,6 +74,7 @@ Security documentation:
 - [Security hardening guide](docs/security.md)
 - [Authentication and authorization](docs/authentication.md)
 - [Admin-managed service configuration](docs/service-configuration.md)
+- [Stripe payments](docs/payments.md)
 
 Production readiness requirements before release:
 
@@ -390,7 +392,7 @@ The page reads all required parameters from the URL, renders practitioner/reason
 ### Appointment status rules
 
 - `IN_PERSON` => appointment is created directly as `CONFIRMED`.
-- `VIDEO` => appointment is created as `PENDING` to support a future payment capture flow.
+- `VIDEO` => appointment is created as `PENDING`; Stripe Checkout must be created server-side for the authenticated owner before the appointment can become `CONFIRMED`.
 
 ### API security and business rules
 
@@ -403,7 +405,14 @@ The page reads all required parameters from the URL, renders practitioner/reason
 - start time must be a valid future ISO datetime.
 - slot is re-checked for availability before creation.
 - a second race-condition check is done right at insert time.
-- placeholder notification is created after appointment record.
+
+### Payment status rules
+
+`POST /api/payments/checkout` requires a signed patient session, verifies appointment ownership, confirms the appointment is still `PENDING` and in the future, computes the price from the appointment reason on the server, creates a Stripe Checkout Session with `STRIPE_SECRET_KEY`, and stores a `Payment` row keyed by a server-generated idempotency key. The client receives only the Checkout URL and must never mark payment complete by itself.
+
+`POST /api/stripe/webhook` verifies the raw request body with `STRIPE_WEBHOOK_SECRET` before any state transition. Stripe event IDs are recorded to prevent duplicate processing. Successful Checkout or PaymentIntent events mark the payment `SUCCEEDED` and confirm the pending appointment; failed or expired events mark only the payment as `FAILED` or `EXPIRED`. See `docs/payments.md` for setup and operational details.
+
+Appointment creation still creates a placeholder notification after the appointment record.
 
 ### Setup, test, and deployment instructions
 

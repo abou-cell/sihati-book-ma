@@ -46,6 +46,18 @@ enum NotificationType {
   APPOINTMENT_REMINDER_2H
 }
 
+enum PaymentProvider {
+  STRIPE
+}
+
+enum PaymentStatus {
+  CHECKOUT_CREATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+}
+
 model User {
   id           String   @id @default(cuid())
   role         UserRole
@@ -56,6 +68,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   patientAppointments Appointment[] @relation("PatientAppointments")
+  payments            Payment[]
 }
 
 model Practitioner {
@@ -123,13 +136,52 @@ model Appointment {
   endTime          DateTime
   status           AppointmentStatus
   createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  patient      User               @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Restrict)
-  practitioner Practitioner       @relation(fields: [practitionerId], references: [id], onDelete: Restrict)
-  reason       ConsultationReason @relation(fields: [reasonId], references: [id], onDelete: Restrict)
+  patient       User               @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Restrict)
+  practitioner  Practitioner       @relation(fields: [practitionerId], references: [id], onDelete: Restrict)
+  reason        ConsultationReason @relation(fields: [reasonId], references: [id], onDelete: Restrict)
   notifications Notification[]
+  payments      Payment[]
 
   @@index([practitionerId, startTime])
+  @@index([patientId, status])
+}
+
+model Payment {
+  id                      String          @id @default(cuid())
+  provider                PaymentProvider
+  providerSessionId       String?         @unique
+  providerPaymentIntentId String?         @unique
+  appointmentId           String
+  userId                  String
+  amount                  Int
+  currency                String
+  status                  PaymentStatus
+  idempotencyKey          String          @unique
+  rawProviderEventId      String?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([appointmentId])
+  @@index([userId])
+  @@index([provider, status])
+  @@index([rawProviderEventId])
+}
+
+model PaymentWebhookEvent {
+  id              String          @id @default(cuid())
+  provider        PaymentProvider
+  providerEventId String          @unique
+  eventType       String
+  paymentId       String?
+  processedAt     DateTime        @default(now())
+
+  @@index([provider, eventType])
+  @@index([paymentId])
 }
 
 model Notification {
