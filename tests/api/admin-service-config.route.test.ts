@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { demoSessionHeaderNames } from "@/lib/auth/session";
 
@@ -31,6 +31,20 @@ function adminRequest(method = "GET", body?: unknown) {
     body: body ? JSON.stringify(body) : undefined,
   });
 }
+
+beforeEach(() => {
+  vi.stubEnv("NODE_ENV", "test");
+  vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+  vi.stubEnv("RATE_LIMIT_REDIS_REST_URL", "");
+  vi.stubEnv("RATE_LIMIT_REDIS_REST_TOKEN", "");
+  vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+  vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
 
 describe("admin service configuration API", () => {
   it("requires an admin session", async () => {

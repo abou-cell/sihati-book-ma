@@ -35,6 +35,7 @@ jobs:
       - name: Unit and API tests
         env:
           NODE_ENV: test
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
           DATABASE_URL: ''
           STRIPE_SECRET_KEY: ''
           STRIPE_WEBHOOK_SECRET: ''

@@ -6,7 +6,10 @@ const APP_ENCRYPTION_KEY_BYTES = 32;
 
 const emptyStringToUndefined = (value: unknown) => (value === '' ? undefined : value);
 
-const optionalValue = <T extends z.ZodType>(schema: T) => z.preprocess(emptyStringToUndefined, schema.optional());
+// Optional environment variables may be provided by CI as empty strings.
+// Normalize only optional values before validation so production-only required
+// checks can still fail closed after parsing.
+const optionalEnvValue = <T extends z.ZodType>(schema: T) => z.preprocess(emptyStringToUndefined, schema.optional());
 
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.url().default('http://localhost:3000'),
@@ -26,8 +29,8 @@ function isBase64EncodedKeyWithMinimumBytes(value: string): boolean {
 
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(NODE_ENV_VALUES).default('development'),
-  DATABASE_URL: optionalValue(z.url()),
-  AUTH_SECRET: optionalValue(z.string().min(32)),
+  DATABASE_URL: optionalEnvValue(z.url()),
+  AUTH_SECRET: optionalEnvValue(z.string().min(32)),
   APP_ENCRYPTION_KEY: z.preprocess(
     emptyStringToUndefined,
     z
@@ -37,17 +40,17 @@ const serverEnvSchema = z.object({
       })
       .optional(),
   ),
-  STRIPE_SECRET_KEY: optionalValue(z.string().min(1)),
-  STRIPE_WEBHOOK_SECRET: optionalValue(z.string().min(1)),
-  EMAIL_FROM: optionalValue(z.email()),
-  RESEND_API_KEY: optionalValue(z.string().min(1)),
-  RATE_LIMIT_REDIS_REST_URL: optionalValue(z.url()),
-  RATE_LIMIT_REDIS_REST_TOKEN: optionalValue(z.string().min(1)),
-  UPSTASH_REDIS_REST_URL: optionalValue(z.url()),
-  UPSTASH_REDIS_REST_TOKEN: optionalValue(z.string().min(1)),
+  STRIPE_SECRET_KEY: optionalEnvValue(z.string().min(1)),
+  STRIPE_WEBHOOK_SECRET: optionalEnvValue(z.string().min(1)),
+  EMAIL_FROM: optionalEnvValue(z.email()),
+  RESEND_API_KEY: optionalEnvValue(z.string().min(1)),
+  RATE_LIMIT_REDIS_REST_URL: optionalEnvValue(z.url()),
+  RATE_LIMIT_REDIS_REST_TOKEN: optionalEnvValue(z.string().min(1)),
+  UPSTASH_REDIS_REST_URL: optionalEnvValue(z.url()),
+  UPSTASH_REDIS_REST_TOKEN: optionalEnvValue(z.string().min(1)),
   MEDICAL_DOCUMENTS_STORAGE_PROVIDER: z.enum(['S3_PRIVATE', 'LOCAL_PRIVATE']).default('LOCAL_PRIVATE'),
-  MEDICAL_DOCUMENTS_STORAGE_BASE_URL: optionalValue(z.url()),
-  MEDICAL_DOCUMENTS_SIGNING_SECRET: optionalValue(z.string().min(32)),
+  MEDICAL_DOCUMENTS_STORAGE_BASE_URL: optionalEnvValue(z.url()),
+  MEDICAL_DOCUMENTS_SIGNING_SECRET: optionalEnvValue(z.string().min(32)),
   MEDICAL_DOCUMENT_ADMIN_DOWNLOADS_ENABLED: z.enum(['true', 'false']).default('false'),
 });
 
