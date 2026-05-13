@@ -32,8 +32,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
+      - name: Unit and API tests
         env:
+          NODE_ENV: test
           DATABASE_URL: ''
           STRIPE_SECRET_KEY: ''
           STRIPE_WEBHOOK_SECRET: ''
@@ -43,5 +44,46 @@ jobs:
           UPSTASH_REDIS_REST_TOKEN: ''
         run: npm test
 
+      - name: Production env validation regression
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: https://sihati.example
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati
+          AUTH_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          STRIPE_SECRET_KEY: sk_live_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          EMAIL_FROM: noreply@sihati.example
+          RESEND_API_KEY: re_ci_placeholder
+          RATE_LIMIT_REDIS_REST_URL: https://redis.example.com
+          RATE_LIMIT_REDIS_REST_TOKEN: redis-ci-placeholder
+          UPSTASH_REDIS_REST_URL: ''
+          UPSTASH_REDIS_REST_TOKEN: ''
+          MEDICAL_DOCUMENTS_SIGNING_SECRET: medical-documents-signing-secret-ci
+        run: npm test -- tests/unit/env.test.ts
+
+      - name: Prisma schema validation
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati
+        run: npx prisma validate
+
       - name: Build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: https://sihati.example
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati
+          AUTH_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          STRIPE_SECRET_KEY: sk_live_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          EMAIL_FROM: noreply@sihati.example
+          RESEND_API_KEY: re_ci_placeholder
+          RATE_LIMIT_REDIS_REST_URL: https://redis.example.com
+          RATE_LIMIT_REDIS_REST_TOKEN: redis-ci-placeholder
+          UPSTASH_REDIS_REST_URL: ''
+          UPSTASH_REDIS_REST_TOKEN: ''
+          MEDICAL_DOCUMENTS_SIGNING_SECRET: medical-documents-signing-secret-ci
         run: npm run build
+
+      - name: npm audit moderate
+        run: npm run audit:prod
