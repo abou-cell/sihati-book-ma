@@ -13,13 +13,19 @@ vi.mock("@/lib/services/app-config.service", () => ({ appConfigService: appConfi
 
 const { GET, PATCH, POST } = await import("@/app/api/admin/service-config/route");
 
+function trustedAppOrigin() {
+  return new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").origin;
+}
+
 function adminRequest(method = "GET", body?: unknown) {
-  return new Request("http://localhost:3000/api/admin/service-config", {
+  const origin = trustedAppOrigin();
+
+  return new Request(`${origin}/api/admin/service-config`, {
     method,
     headers: {
       [demoSessionHeaderNames.userId]: "admin_1",
       [demoSessionHeaderNames.role]: "ADMIN",
-      origin: "http://localhost:3000",
+      origin,
       ...(body ? { "content-type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
