@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as searchPractitioners } from "@/app/api/practitioners/search/route";
 
 beforeEach(() => {
+  vi.stubEnv("NODE_ENV", "test");
   vi.stubEnv("DATABASE_URL", "");
+  vi.stubEnv("RATE_LIMIT_REDIS_REST_URL", "");
+  vi.stubEnv("RATE_LIMIT_REDIS_REST_TOKEN", "");
+  vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+  vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
 });
 
 describe("API error response contracts", () => {

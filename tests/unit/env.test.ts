@@ -60,22 +60,11 @@ describe('environment validation', () => {
       NODE_ENV: 'production',
       NEXT_PHASE: undefined,
       NEXT_PUBLIC_APP_URL: 'https://sihati.example',
-      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/sihati',
-      AUTH_SECRET: 'a'.repeat(32),
-      APP_ENCRYPTION_KEY: '',
-      STRIPE_SECRET_KEY: 'sk_live_example',
-      STRIPE_WEBHOOK_SECRET: 'whsec_example',
-      EMAIL_FROM: 'noreply@sihati.example',
-      RESEND_API_KEY: 're_example',
-      RATE_LIMIT_REDIS_REST_URL: 'https://redis.example.com',
-      RATE_LIMIT_REDIS_REST_TOKEN: 'redis-token',
-      UPSTASH_REDIS_REST_URL: '',
-      UPSTASH_REDIS_REST_TOKEN: '',
-      MEDICAL_DOCUMENTS_SIGNING_SECRET: '',
+      ...EMPTY_OPTIONAL_ENV_OVERRIDES,
     });
 
     await expect(importEnvModule()).rejects.toThrow(
-      'Missing required production environment variables: APP_ENCRYPTION_KEY, MEDICAL_DOCUMENTS_SIGNING_SECRET',
+      'Missing required production environment variables: DATABASE_URL, AUTH_SECRET, APP_ENCRYPTION_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, EMAIL_FROM, RESEND_API_KEY, MEDICAL_DOCUMENTS_SIGNING_SECRET, RATE_LIMIT_REDIS_REST_URL, RATE_LIMIT_REDIS_REST_TOKEN',
     );
   });
 
