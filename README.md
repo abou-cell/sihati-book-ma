@@ -766,7 +766,7 @@ npm run audit:prod
 
 ### Dependency audit note
 
-The project currently uses Next.js `16.2.4`. Next still pins a nested PostCSS package, so `package.json` includes an npm `overrides.postcss` entry that resolves PostCSS to the patched direct dependency version used by the app. Keep this override until a future Next.js release removes the vulnerable nested PostCSS pin, then remove the override as part of a normal lockfile update and rerun `npm audit --audit-level=moderate`.
+The project currently uses Next.js `16.2.6`. Next still pins a nested PostCSS package, so `package.json` includes an npm `overrides.postcss` entry that resolves PostCSS to the patched direct dependency version used by the app. Keep this override until a future Next.js release removes the vulnerable nested PostCSS pin, then remove the override as part of a normal lockfile update and rerun `npm audit --audit-level=moderate`.
 
 ### Production readiness gates
 
