@@ -123,7 +123,7 @@ This module only manages configuration. Provider flows such as payments, video p
 - `npm run test:watch` — run Vitest in watch mode for local development.
 - `npm run test:coverage` — run Vitest with V8 coverage reports in `coverage/`.
 
-## Test foundation and CI gate
+## Test foundation and CI release gates
 
 Automated behavioral tests are now configured with Vitest. The current foundation covers deterministic unit/API tests for validators, auth/session helpers, role permissions, security error contracts, provider-free services, availability slot generation, and mocked notification delivery.
 
@@ -135,17 +135,32 @@ Automated behavioral tests are now configured with Vitest. The current foundatio
 - Debugging and maintenance guide: [`docs/debugging-maintenance.md`](docs/debugging-maintenance.md)
 - CI workflow: `.github/workflows/ci.yml`
 
-The CI quality gate runs:
+The GitHub Actions release gate runs on every pull request and on pushes to `main`. It uses the Node.js version from `.nvmrc`/`package.json` engines and splits production readiness into independent jobs so failures identify the blocked gate quickly:
+
+- `install-cache`: `npm ci` with the npm cache warmed by `actions/setup-node`.
+- `lint`: `npm run lint`.
+- `typecheck`: `npm run typecheck`.
+- `tests`: `npm test` for the unit/API suite with provider secrets intentionally empty.
+- `production-env-validation`: regression tests that prove production runtime validation still fails when required secrets are missing and is not bypassed by a manually preset `NEXT_PHASE`.
+- `prisma-validate`: `npx prisma validate`.
+- `build`: `npm run build` with non-secret CI placeholders for build-time configuration.
+- `audit`: `npm run audit:prod` (`npm audit --audit-level=moderate`).
+- `markdown-link-check`: runs the configured markdown link-check npm script when one is added; otherwise it records a skip.
+- `docker-build`: `docker build --target runner --tag sihati:ci .` whenever `Dockerfile` exists.
+- `release-gate`: fails the workflow unless every required gate succeeds.
+
+For local release-candidate validation, run the same critical commands before requesting review:
 
 ```bash
-npm ci
 npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run audit:prod
+npx prisma validate
 ```
 
-Tests must not require real Stripe, Firebase, SMTP/Resend, Cloudflare credentials, or a production database. Use mocks, in-memory repositories, fake timers, and local fixtures for all provider-facing behavior until dedicated test providers or a test database are explicitly configured. Docker Compose provides an optional local PostgreSQL container for manual validation and future repository integration tests.
+Tests must not require real Stripe, Firebase, SMTP/Resend, Cloudflare credentials, or a production database. Use mocks, in-memory repositories, fake timers, and local fixtures for all provider-facing behavior until dedicated test providers or a test database are explicitly configured. Docker Compose provides an optional local PostgreSQL container for manual validation and future repository integration tests, while CI verifies that the production Docker image continues to build.
 
 ## Docker local development
 

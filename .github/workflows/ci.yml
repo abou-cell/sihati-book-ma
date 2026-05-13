@@ -1,17 +1,39 @@
 name: CI
 
 on:
-  push:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  NEXT_PUBLIC_APP_URL: https://sihati.example
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati
+  AUTH_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  STRIPE_SECRET_KEY: sk_live_ci_placeholder
+  STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+  EMAIL_FROM: noreply@sihati.example
+  RESEND_API_KEY: re_ci_placeholder
+  RATE_LIMIT_REDIS_REST_URL: https://redis.example.com
+  RATE_LIMIT_REDIS_REST_TOKEN: redis-ci-placeholder
+  UPSTASH_REDIS_REST_URL: ""
+  UPSTASH_REDIS_REST_TOKEN: ""
+  MEDICAL_DOCUMENTS_SIGNING_SECRET: medical-documents-signing-secret-ci
+
 jobs:
-  quality:
-    name: Quality gate
+  install-cache:
+    name: Install and warm npm cache
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -20,7 +42,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: install-cache
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -29,61 +70,238 @@ jobs:
       - name: Lint
         run: npm run lint
 
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    needs: install-cache
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Typecheck
         run: npm run typecheck
 
+  tests:
+    name: Unit and API tests
+    runs-on: ubuntu-latest
+    needs: install-cache
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      DATABASE_URL: ""
+      STRIPE_SECRET_KEY: ""
+      STRIPE_WEBHOOK_SECRET: ""
+      RATE_LIMIT_REDIS_REST_URL: ""
+      RATE_LIMIT_REDIS_REST_TOKEN: ""
+      UPSTASH_REDIS_REST_URL: ""
+      UPSTASH_REDIS_REST_TOKEN: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Unit and API tests
-        env:
-          NODE_ENV: test
-          DATABASE_URL: ''
-          STRIPE_SECRET_KEY: ''
-          STRIPE_WEBHOOK_SECRET: ''
-          RATE_LIMIT_REDIS_REST_URL: ''
-          RATE_LIMIT_REDIS_REST_TOKEN: ''
-          UPSTASH_REDIS_REST_URL: ''
-          UPSTASH_REDIS_REST_TOKEN: ''
         run: npm test
 
+  production-env-validation:
+    name: Production env validation
+    runs-on: ubuntu-latest
+    needs: install-cache
+    timeout-minutes: 10
+    env:
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Reject accidental production validation bypass
+        run: |
+          if [ -n "${NEXT_PHASE:-}" ]; then
+            echo "NEXT_PHASE must not be preset in production runtime validation gates."
+            exit 1
+          fi
+
       - name: Production env validation regression
-        env:
-          NODE_ENV: production
-          NEXT_PUBLIC_APP_URL: https://sihati.example
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati
-          AUTH_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          STRIPE_SECRET_KEY: sk_live_ci_placeholder
-          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
-          EMAIL_FROM: noreply@sihati.example
-          RESEND_API_KEY: re_ci_placeholder
-          RATE_LIMIT_REDIS_REST_URL: https://redis.example.com
-          RATE_LIMIT_REDIS_REST_TOKEN: redis-ci-placeholder
-          UPSTASH_REDIS_REST_URL: ''
-          UPSTASH_REDIS_REST_TOKEN: ''
-          MEDICAL_DOCUMENTS_SIGNING_SECRET: medical-documents-signing-secret-ci
         run: npm test -- tests/unit/env.test.ts
 
+  prisma-validate:
+    name: Prisma schema validation
+    runs-on: ubuntu-latest
+    needs: install-cache
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Prisma schema validation
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati
         run: npx prisma validate
 
-      - name: Build
-        env:
-          NODE_ENV: production
-          NEXT_PUBLIC_APP_URL: https://sihati.example
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati
-          AUTH_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          STRIPE_SECRET_KEY: sk_live_ci_placeholder
-          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
-          EMAIL_FROM: noreply@sihati.example
-          RESEND_API_KEY: re_ci_placeholder
-          RATE_LIMIT_REDIS_REST_URL: https://redis.example.com
-          RATE_LIMIT_REDIS_REST_TOKEN: redis-ci-placeholder
-          UPSTASH_REDIS_REST_URL: ''
-          UPSTASH_REDIS_REST_TOKEN: ''
-          MEDICAL_DOCUMENTS_SIGNING_SECRET: medical-documents-signing-secret-ci
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    needs:
+      - install-cache
+      - production-env-validation
+    timeout-minutes: 20
+    env:
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prevent manual static-build bypass
+        run: |
+          if [ -n "${NEXT_PHASE:-}" ]; then
+            echo "NEXT_PHASE is controlled by Next.js and must not be set manually in CI."
+            exit 1
+          fi
+
+      - name: Production build
         run: npm run build
+
+  audit:
+    name: npm audit moderate
+    runs-on: ubuntu-latest
+    needs: install-cache
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: npm audit moderate
         run: npm run audit:prod
+
+  markdown-link-check:
+    name: Markdown link check
+    runs-on: ubuntu-latest
+    needs: install-cache
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run markdown link check when configured
+        run: |
+          SCRIPT_NAME="$(node -e "const scripts=require('./package.json').scripts||{}; const names=['markdown:link','markdown:links','markdown-link-check','lint:md-links']; console.log(names.find((name)=>scripts[name])||'');")"
+          if [ -z "$SCRIPT_NAME" ]; then
+            echo "No markdown link check npm script configured; skipping."
+            exit 0
+          fi
+          npm run "$SCRIPT_NAME"
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    needs:
+      - install-cache
+      - build
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image when Dockerfile exists
+        run: |
+          if [ ! -f Dockerfile ]; then
+            echo "No Dockerfile found; skipping Docker image build."
+            exit 0
+          fi
+          docker build --target runner --tag sihati:ci .
+
+  release-gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    needs:
+      - install-cache
+      - lint
+      - typecheck
+      - tests
+      - production-env-validation
+      - prisma-validate
+      - build
+      - audit
+      - markdown-link-check
+      - docker-build
+    if: ${{ always() }}
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify all release gates passed
+        run: |
+          results='${{ toJson(needs) }}'
+          echo "$results"
+          if echo "$results" | jq -e 'to_entries[] | select(.value.result != "success")' >/dev/null; then
+            echo "One or more release gates failed."
+            exit 1
+          fi
