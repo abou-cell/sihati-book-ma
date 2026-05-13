@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as searchPractitioners } from "@/app/api/practitioners/search/route";
+
+beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
+});
 
 describe("API error response contracts", () => {
   it("returns structured validation errors for invalid practitioner search queries", async () => {

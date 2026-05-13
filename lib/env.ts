@@ -4,6 +4,10 @@ const NODE_ENV_VALUES = ['development', 'test', 'production'] as const;
 const NEXT_PRODUCTION_BUILD_PHASE = 'phase-production-build';
 const APP_ENCRYPTION_KEY_BYTES = 32;
 
+const emptyStringToUndefined = (value: unknown) => (value === '' ? undefined : value);
+
+const optionalValue = <T extends z.ZodType>(schema: T) => z.preprocess(emptyStringToUndefined, schema.optional());
+
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.url().default('http://localhost:3000'),
 });
@@ -22,25 +26,28 @@ function isBase64EncodedKeyWithMinimumBytes(value: string): boolean {
 
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(NODE_ENV_VALUES).default('development'),
-  DATABASE_URL: z.url().optional(),
-  AUTH_SECRET: z.string().min(32).optional(),
-  APP_ENCRYPTION_KEY: z
-    .string()
-    .refine(isBase64EncodedKeyWithMinimumBytes, {
-      message: `Must be a base64-encoded key with at least ${APP_ENCRYPTION_KEY_BYTES} random bytes. Generate with: openssl rand -base64 ${APP_ENCRYPTION_KEY_BYTES}`,
-    })
-    .optional(),
-  STRIPE_SECRET_KEY: z.string().min(1).optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
-  EMAIL_FROM: z.email().optional(),
-  RESEND_API_KEY: z.string().min(1).optional(),
-  RATE_LIMIT_REDIS_REST_URL: z.url().optional(),
-  RATE_LIMIT_REDIS_REST_TOKEN: z.string().min(1).optional(),
-  UPSTASH_REDIS_REST_URL: z.url().optional(),
-  UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+  DATABASE_URL: optionalValue(z.url()),
+  AUTH_SECRET: optionalValue(z.string().min(32)),
+  APP_ENCRYPTION_KEY: z.preprocess(
+    emptyStringToUndefined,
+    z
+      .string()
+      .refine(isBase64EncodedKeyWithMinimumBytes, {
+        message: `Must be a base64-encoded key with at least ${APP_ENCRYPTION_KEY_BYTES} random bytes. Generate with: openssl rand -base64 ${APP_ENCRYPTION_KEY_BYTES}`,
+      })
+      .optional(),
+  ),
+  STRIPE_SECRET_KEY: optionalValue(z.string().min(1)),
+  STRIPE_WEBHOOK_SECRET: optionalValue(z.string().min(1)),
+  EMAIL_FROM: optionalValue(z.email()),
+  RESEND_API_KEY: optionalValue(z.string().min(1)),
+  RATE_LIMIT_REDIS_REST_URL: optionalValue(z.url()),
+  RATE_LIMIT_REDIS_REST_TOKEN: optionalValue(z.string().min(1)),
+  UPSTASH_REDIS_REST_URL: optionalValue(z.url()),
+  UPSTASH_REDIS_REST_TOKEN: optionalValue(z.string().min(1)),
   MEDICAL_DOCUMENTS_STORAGE_PROVIDER: z.enum(['S3_PRIVATE', 'LOCAL_PRIVATE']).default('LOCAL_PRIVATE'),
-  MEDICAL_DOCUMENTS_STORAGE_BASE_URL: z.url().optional(),
-  MEDICAL_DOCUMENTS_SIGNING_SECRET: z.string().min(32).optional(),
+  MEDICAL_DOCUMENTS_STORAGE_BASE_URL: optionalValue(z.url()),
+  MEDICAL_DOCUMENTS_SIGNING_SECRET: optionalValue(z.string().min(32)),
   MEDICAL_DOCUMENT_ADMIN_DOWNLOADS_ENABLED: z.enum(['true', 'false']).default('false'),
 });
 
