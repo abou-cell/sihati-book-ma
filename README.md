@@ -770,10 +770,22 @@ The project currently uses Next.js `16.2.4`. Next still pins a nested PostCSS pa
 
 ### Production readiness gates
 
-A production candidate should pass all of these gates in CI:
+A production candidate must pass the GitHub Actions `CI` workflow before merge or deployment. The workflow runs on every pull request and every push to `main`, using Node.js `22.12.0` to satisfy the package engine requirement of `>=22.12.0`. It keeps release diagnostics separate by running these jobs independently:
 
-- Lint: `npm run lint`
-- TypeScript: `npm run typecheck`
+- Install/cache warm-up with `npm ci` and the npm lockfile cache.
+- Lint: `npm run lint`.
+- TypeScript: `npm run typecheck`.
+- Unit/API tests: `npm test`, including the production environment validation regression tests.
+- Production build: `npm run build` with non-secret CI placeholders for build-time environment variables.
+- Dependency audit: `npm run audit:prod` (`npm audit --audit-level=moderate`).
+- Prisma schema validation: `npx prisma validate`.
+- Markdown link check when a recognized npm script exists.
+- Docker image build and container smoke run when `Dockerfile` exists.
+
+The production environment validation tests are a release gate: they must continue to prove that production runtime startup fails closed when required variables are missing, while allowing the Next.js static production build phase to complete with safe placeholders. The GitHub Pages deploy workflow is triggered only after a successful `CI` run on `main`, so deployment cannot bypass the CI release gates.
+
+For local release preparation, run the same critical stages before opening or merging a release PR:
+
 - Combined local check: `npm run check`
 - Production build: `npm run build`
 - Dependency audit: `npm run audit:prod`

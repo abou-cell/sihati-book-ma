@@ -1,17 +1,38 @@
 name: CI
 
 on:
-  push:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NEXT_TELEMETRY_DISABLED: "1"
+  NEXT_PUBLIC_APP_URL: https://sihati.example
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sihati?schema=public
+  AUTH_SECRET: ci_auth_secret_with_at_least_32_chars
+  APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  STRIPE_SECRET_KEY: sk_test_ci_placeholder
+  STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+  EMAIL_FROM: noreply@sihati.example
+  RESEND_API_KEY: re_ci_placeholder
+  RATE_LIMIT_REDIS_REST_URL: https://redis.example.com
+  RATE_LIMIT_REDIS_REST_TOKEN: ci_redis_token_placeholder
+  MEDICAL_DOCUMENTS_SIGNING_SECRET: ci_medical_documents_signing_secret_32
+
 jobs:
-  quality:
-    name: Quality gate
+  install-cache:
+    name: Install and warm npm cache
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -20,20 +41,239 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.12.0
           cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
+      - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Lint
+      - name: Verify npm cache
+        run: npm cache verify
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Run ESLint
         run: npm run lint
 
-      - name: Typecheck
+  typecheck:
+    name: TypeScript typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Run TypeScript compiler
         run: npm run typecheck
 
-      - name: Test
+  tests:
+    name: Unit and API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Verify production env validation fails closed
+        run: npx vitest run tests/unit/env.test.ts
+
+      - name: Run unit and API tests
+        env:
+          STRIPE_SECRET_KEY: ""
+          STRIPE_WEBHOOK_SECRET: ""
+          RATE_LIMIT_REDIS_REST_URL: ""
+          RATE_LIMIT_REDIS_REST_TOKEN: ""
+          UPSTASH_REDIS_REST_URL: ""
+          UPSTASH_REDIS_REST_TOKEN: ""
         run: npm test
 
-      - name: Build
+  production-build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build production artifact
         run: npm run build
+
+  npm-audit:
+    name: npm audit moderate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Run production dependency audit
+        run: npm run audit:prod
+
+  prisma-validate:
+    name: Prisma validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+  markdown-link-check:
+    name: Markdown link check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Run markdown link check script when configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT_NAME=$(node -e "const scripts=require('./package.json').scripts||{}; const candidates=['markdown:linkcheck','markdown:links','links:check','linkcheck','docs:links']; console.log(candidates.find((name)=>scripts[name])||'');")
+          if [ -z "$SCRIPT_NAME" ]; then
+            echo "No markdown link check npm script configured; skipping."
+            exit 0
+          fi
+          npm run "$SCRIPT_NAME"
+
+  docker-image:
+    name: Docker image build and smoke run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: install-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image when Dockerfile exists
+        if: ${{ hashFiles('Dockerfile') != '' }}
+        run: docker build --target runner --tag sihati-ci:${{ github.sha }} .
+
+      - name: Smoke run Docker image when Dockerfile exists
+        if: ${{ hashFiles('Dockerfile') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONTAINER_ID=$(docker run -d \
+            -p 3000:3000 \
+            -e NODE_ENV=production \
+            -e NEXT_PUBLIC_APP_URL=http://localhost:3000 \
+            -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/sihati?schema=public \
+            -e AUTH_SECRET=ci_auth_secret_with_at_least_32_chars \
+            -e APP_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            -e STRIPE_SECRET_KEY=sk_test_ci_placeholder \
+            -e STRIPE_WEBHOOK_SECRET=whsec_ci_placeholder \
+            -e EMAIL_FROM=noreply@sihati.example \
+            -e RESEND_API_KEY=re_ci_placeholder \
+            -e RATE_LIMIT_REDIS_REST_URL=https://redis.example.com \
+            -e RATE_LIMIT_REDIS_REST_TOKEN=ci_redis_token_placeholder \
+            -e MEDICAL_DOCUMENTS_SIGNING_SECRET=ci_medical_documents_signing_secret_32 \
+            sihati-ci:${{ github.sha }})
+          trap 'docker logs "$CONTAINER_ID" || true; docker rm -f "$CONTAINER_ID" || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://localhost:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Docker container did not become healthy in time."
+          exit 1
+
+      - name: Skip Docker validation when Dockerfile is absent
+        if: ${{ hashFiles('Dockerfile') == '' }}
+        run: echo "No Dockerfile found; skipping Docker image build."
