@@ -2,10 +2,23 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorageService {
   SecureStorageService({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? _defaultStorage;
 
   static const String authTokenKey = 'sihati.auth_token';
   static const String refreshTokenKey = 'sihati.refresh_token';
+
+  static const AndroidOptions _androidOptions = AndroidOptions(
+    encryptedSharedPreferences: true,
+  );
+
+  static const IOSOptions _iosOptions = IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  );
+
+  static const FlutterSecureStorage _defaultStorage = FlutterSecureStorage(
+    aOptions: _androidOptions,
+    iOptions: _iosOptions,
+  );
 
   final FlutterSecureStorage _storage;
 
@@ -25,13 +38,30 @@ class SecureStorageService {
 
   Future<void> deleteRefreshToken() => delete(refreshTokenKey);
 
-  Future<String?> read(String key) => _storage.read(key: key);
-
-  Future<void> write({required String key, required String value}) {
-    return _storage.write(key: key, value: value);
+  Future<String?> read(String key) {
+    return _storage.read(
+      key: key,
+      aOptions: _androidOptions,
+      iOptions: _iosOptions,
+    );
   }
 
-  Future<void> delete(String key) => _storage.delete(key: key);
+  Future<void> write({required String key, required String value}) {
+    return _storage.write(
+      key: key,
+      value: value,
+      aOptions: _androidOptions,
+      iOptions: _iosOptions,
+    );
+  }
+
+  Future<void> delete(String key) {
+    return _storage.delete(
+      key: key,
+      aOptions: _androidOptions,
+      iOptions: _iosOptions,
+    );
+  }
 
   Future<void> clearSession() async {
     await Future.wait([

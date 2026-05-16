@@ -5,8 +5,12 @@ class AppConfig {
     required this.environment,
     required this.apiBaseUrl,
     this.appName = 'Sihati',
-    this.apiTimeout = const Duration(seconds: 20),
+    this.apiTimeout = defaultApiTimeout,
   });
+
+  static const Duration defaultApiTimeout = Duration(seconds: 20);
+  static const Duration minimumApiTimeout = Duration(seconds: 5);
+  static const Duration maximumApiTimeout = Duration(seconds: 60);
 
   factory AppConfig.fromEnvironment() {
     final environment = _environmentFromName(
@@ -24,9 +28,11 @@ class AppConfig {
           ? defaultApiBaseUrl(environment)
           : configuredBaseUrl,
       apiTimeout: Duration(
-        seconds: _positiveInt(
+        seconds: _boundedInt(
           const int.fromEnvironment('API_TIMEOUT_SECONDS', defaultValue: 20),
-          defaultValue: 20,
+          defaultValue: defaultApiTimeout.inSeconds,
+          minimum: minimumApiTimeout.inSeconds,
+          maximum: maximumApiTimeout.inSeconds,
         ),
       ),
     );
@@ -48,6 +54,14 @@ class AppConfig {
 
   bool get isDevelopment => environment == AppEnvironment.development;
 
+  String get environmentName {
+    return switch (environment) {
+      AppEnvironment.development => 'development',
+      AppEnvironment.staging => 'staging',
+      AppEnvironment.production => 'production',
+    };
+  }
+
   Uri get apiUri {
     final uri = Uri.tryParse(apiBaseUrl.trim());
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
@@ -61,23 +75,32 @@ class AppConfig {
     return uri;
   }
 
+  String get normalizedApiBaseUrl {
+    final uri = apiUri;
+    final path = uri.path == '/'
+        ? ''
+        : uri.path.replaceFirst(RegExp(r'/+$'), '');
+    return uri.replace(path: path, query: null, fragment: null).toString();
+  }
+
   String get apiOriginForDiagnostics => apiUri.origin;
 
   Uri resolveApiUri(String path, [Map<String, dynamic>? queryParameters]) {
     final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
     final basePath =
         apiUri.path.endsWith('/') ? apiUri.path : '${apiUri.path}/';
-    final resolved = apiUri.replace(path: '$basePath$normalizedPath');
+    final resolved = apiUri.replace(
+      path: '$basePath$normalizedPath',
+      query: null,
+      fragment: null,
+    );
 
-    if (queryParameters == null || queryParameters.isEmpty) {
+    final normalizedQuery = _normalizeQueryParameters(queryParameters);
+    if (normalizedQuery.isEmpty) {
       return resolved;
     }
 
-    return resolved.replace(
-      queryParameters: queryParameters.map(
-        (key, value) => MapEntry(key, value?.toString()),
-      ),
-    );
+    return resolved.replace(queryParameters: normalizedQuery);
   }
 
   void validate() {
@@ -107,11 +130,13 @@ class AppConfig {
       );
     }
 
-    if (apiTimeout <= Duration.zero) {
+    if (apiTimeout < minimumApiTimeout || apiTimeout > maximumApiTimeout) {
       throw ArgumentError.value(
         apiTimeout,
         'apiTimeout',
-        'API timeout must be greater than zero.',
+        'API timeout must be between '
+        '${minimumApiTimeout.inSeconds} and '
+        '${maximumApiTimeout.inSeconds} seconds.',
       );
     }
   }
@@ -150,11 +175,48 @@ class AppConfig {
         normalizedHost == '::1';
   }
 
-  static int _positiveInt(int value, {required int defaultValue}) {
+  static int _boundedInt(
+    int value, {
+    required int defaultValue,
+    required int minimum,
+    required int maximum,
+  }) {
     if (value <= 0) {
       return defaultValue;
     }
 
+    if (value < minimum) {
+      return minimum;
+    }
+
+    if (value > maximum) {
+      return maximum;
+    }
+
     return value;
+  }
+
+  static Map<String, dynamic> _normalizeQueryParameters(
+    Map<String, dynamic>? queryParameters,
+  ) {
+    if (queryParameters == null || queryParameters.isEmpty) {
+      return const {};
+    }
+
+    return Map.fromEntries(
+      queryParameters.entries
+          .where((entry) => entry.value != null)
+          .map((entry) {
+        final value = entry.value;
+        if (value is Iterable) {
+          return MapEntry(
+            entry.key,
+            value.where((item) => item != null).map((item) => item.toString()),
+          );
+        }
+
+        return MapEntry(entry.key, value.toString());
+      }),
+    );
   }
 }
