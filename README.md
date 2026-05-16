@@ -46,6 +46,63 @@ Minimum release gates before production:
 - Run and pass `npm run prod:check` in CI before deployment, or run its lint, typecheck, test, build, and audit stages separately for clearer failure diagnostics.
 - Configure monitoring, logs, alerts, and documented recovery procedures.
 
+## Production readiness status
+
+The current codebase is production-oriented but not yet approved for live production traffic.
+
+Release blockers:
+
+- Production authentication must replace demo-header authentication.
+- Shared rate limiting must replace local in-memory limiting for horizontally scaled deployments.
+- Stripe checkout and webhook flows must be fully implemented and tested before accepting real payments.
+- Medical document storage must use private encrypted storage, strict access control, audit logging, and short-lived signed URLs.
+- Remaining demo/sample dashboard and consultation data must be replaced by database-backed flows.
+- Prisma migrations, backup, restore, and rollback procedures must be validated in staging.
+- Docker image build and deployment must be verified in CI.
+- End-to-end tests must cover patient, practitioner, admin, payment, and consultation flows.
+
+## Medical data and privacy architecture
+
+Sihati may process sensitive medical or appointment-related information. The production architecture must apply privacy-by-design principles:
+
+- Store only the minimum required personal and medical data.
+- Keep medical files in private object storage only.
+- Never expose storage object keys directly to browsers.
+- Use short-lived signed URLs for controlled downloads.
+- Encrypt data at rest where supported by the database and storage provider.
+- Enforce resource ownership server-side for every protected access.
+- Record audit events for sensitive actions.
+- Avoid logging PHI, secrets, tokens, signed URLs, request bodies containing medical data, or decrypted provider configuration.
+- Define retention and deletion rules before production release.
+
+## CI/CD release gates
+
+Every pull request and production deployment candidate must pass:
+
+- `npm run lint`
+- `npm run typecheck`
+- `npm test`
+- `npm run build`
+- `npm audit --audit-level=moderate`
+- `prisma validate`
+- Docker image build where Docker deployment is used
+- production environment validation
+- smoke tests on staging before release
+
+## Operational runbooks
+
+The architecture must be supported by operational runbooks for:
+
+- Local installation
+- Docker local deployment
+- GitHub Pages or GitHub-based preview deployment where applicable
+- AWS deployment
+- Database migration
+- Backup and restore
+- Incident response
+- Secret rotation
+- Provider configuration
+- Payment/webhook troubleshooting
 
 ## Environment configuration
 
