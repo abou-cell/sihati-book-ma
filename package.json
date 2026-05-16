@@ -17,7 +17,13 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "audit:prod": "npm audit --audit-level=moderate",
-    "prod:check": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit:prod"
+    "prod:check": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit:prod",
+    "mobile:pub-get": "cd apps/mobile && flutter pub get",
+    "mobile:format": "cd apps/mobile && dart format --set-exit-if-changed .",
+    "mobile:format:write": "cd apps/mobile && dart format .",
+    "mobile:analyze": "cd apps/mobile && flutter analyze",
+    "mobile:test": "cd apps/mobile && flutter test",
+    "mobile:check": "npm run mobile:format && npm run mobile:analyze && npm run mobile:test"
   },
   "dependencies": {
     "@prisma/client": "^6.8.0",

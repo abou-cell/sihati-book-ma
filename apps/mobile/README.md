@@ -10,7 +10,8 @@ This scaffold intentionally does **not** connect to the backend, implement authe
 - Material 3 theme with a clean, medical, reassuring Sihati brand style.
 - Responsive landing screen for small and larger mobile/tablet widths.
 - Placeholder network, storage, error, routing, and feature directories.
-- Widget test baseline for the initial screen.
+- Environment validation that allows local HTTP only in development and requires HTTPS for staging/production.
+- Widget and configuration test baselines for the initial screen and mobile runtime settings.
 
 ## Run locally
 
@@ -21,6 +22,16 @@ cd apps/mobile
 flutter pub get
 flutter test
 flutter run --dart-define=APP_ENV=development --dart-define=API_BASE_URL=http://localhost:3000
+```
+
+Root-level convenience scripts are also available for CI and monorepo workflows:
+
+```bash
+npm run mobile:pub-get
+npm run mobile:format
+npm run mobile:analyze
+npm run mobile:test
+npm run mobile:check
 ```
 
 For staging and production, `API_BASE_URL` must be HTTPS:
@@ -76,18 +87,20 @@ apps/mobile/
 Later phases should connect Flutter to the existing Next.js API through a typed HTTP client in `lib/core/network`. The client should:
 
 1. Use `AppConfig.apiBaseUrl` from `--dart-define` values for dev, staging, and production.
-2. Require HTTPS for staging and production.
-3. Send bearer tokens only after the production mobile authentication strategy is approved.
-4. Normalize Sihati response envelopes: `{ "data": ... }` for success and `{ "error": { "code", "message", "details" } }` for failures.
-5. Preserve server error codes for UX, support, and telemetry.
-6. Redact tokens, PHI, document URLs, payment identifiers, and appointment details from logs.
-7. Add retries only for idempotent read endpoints and never blindly retry appointment or payment creation.
+2. Require HTTPS for staging and production and keep local HTTP confined to development builds.
+3. Log only redacted origins such as `AppConfig.apiOriginForDiagnostics`, never full URLs that may contain query strings.
+4. Send bearer tokens only after the production mobile authentication strategy is approved.
+5. Normalize Sihati response envelopes: `{ "data": ... }` for success and `{ "error": { "code", "message", "details" } }` for failures.
+6. Preserve server error codes for UX, support, and telemetry.
+7. Redact tokens, PHI, document URLs, payment identifiers, and appointment details from logs.
+8. Add retries only for idempotent read endpoints and never blindly retry appointment or payment creation.
 
 Flutter must not connect directly to the database, Stripe, object storage, email providers, or video providers. The Next.js backend remains the trust boundary for authentication, RBAC, validation, rate limiting, audit logging, idempotency, signed URLs, payments, and video access decisions.
 
 ## Testing and deployment best practices
 
 - Keep widget tests close to feature UI and add unit tests for routing, error mapping, configuration, and API clients before adding real integrations.
+- Run the root `mobile:check` script in CI once Flutter is installed on the runner.
 - Add integration tests only after platform folders are generated and stable.
 - Run `flutter analyze`, `flutter test`, and formatting checks in CI for `apps/mobile`.
 - Use separate build flavors or `--dart-define` sets for development, staging, and production.

@@ -13,7 +13,7 @@ class ApiClient {
           'The mobile app skeleton does not connect to the Sihati API yet.',
       details: <String, Object?>{
         'path': path,
-        'apiBaseUrl': config.apiBaseUrl,
+        'apiOrigin': config.apiOriginForDiagnostics,
       },
     );
   }
