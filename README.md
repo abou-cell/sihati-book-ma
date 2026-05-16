@@ -32,6 +32,16 @@ The repository now includes a complete technical, deployment, and operations doc
 - [Final production readiness report](docs/final-production-readiness-report.md)
 - [Completion roadmap](docs/completion-roadmap.md)
 
+
+### Mobile monorepo preparation
+
+The repository now reserves `apps/mobile` for the future Flutter app and `packages/shared` for mobile/web API contracts while keeping the existing Next.js web app at the root for safety. See the mobile planning docs before scaffolding Flutter:
+
+- [Mobile roadmap](docs/mobile/mobile-roadmap.md)
+- [Mobile architecture](docs/mobile/mobile-architecture.md)
+
+The recommended temporary structure is root-level web plus `apps/mobile`, `packages/shared`, and `docs/mobile`. Moving the web app into `apps/web` should happen only in a dedicated migration branch after CI, Docker, Prisma, path aliases, and deployment runbooks are validated.
+
 ## Production readiness
 
 Sihati is in final stabilization. Production deployment must preserve the current UI style and avoid unrelated product expansion while hardening security, deployment operations, testing discipline, and maintainability.
