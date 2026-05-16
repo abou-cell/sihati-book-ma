@@ -226,11 +226,25 @@ export class VideoConsultationService {
       });
 
       const access = this.providerAdapter.createRoomAccess({ roomId, roomToken, expiresAt });
-      writeAuditLog({ ...auditBase, action: "video_consultation.join_attempt", patientId: appointment.patientId, practitionerId: appointment.practitionerId, reason: "allowed" });
+      writeAuditLog({
+        ...auditBase,
+        eventType: "VIDEO_JOIN_ATTEMPT",
+        resourceType: "video_consultation",
+        resourceId: appointment.id,
+        action: "video.join",
+        result: "SUCCESS",
+      });
 
       return { appointment, access, accessStart: accessStart.toISOString(), accessExpires: accessExpires.toISOString(), isTooEarly };
     } catch (error) {
-      writeAuditLog({ ...auditBase, action: "video_consultation.join_attempt", reason: error instanceof AppError ? error.code : "UNKNOWN" });
+      writeAuditLog({
+        ...auditBase,
+        eventType: "VIDEO_JOIN_ATTEMPT",
+        resourceType: "video_consultation",
+        resourceId: input.appointmentId,
+        action: "video.join",
+        result: error instanceof AppError && error.status === 403 ? "DENIED" : "FAILURE",
+      });
       throw error;
     }
   }

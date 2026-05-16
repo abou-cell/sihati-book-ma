@@ -62,14 +62,13 @@ function assertAdminDownloadAllowed(currentUser: CurrentUser, reason?: string | 
 
 function auditDenied(currentUser: CurrentUser, document: MedicalDocumentRecord | null, requestId: string | null, reason: string): never {
   writeAuditLog({
-    action: "medical_document.access_denied",
+    eventType: "ACCESS_DENIED",
     actor: currentUser,
-    documentId: document?.id,
-    patientId: document?.patientId,
-    practitionerId: document?.practitionerId,
-    appointmentId: document?.appointmentId,
+    resourceType: "medical_document",
+    resourceId: document?.id,
+    action: reason,
+    result: "DENIED",
     requestId,
-    reason,
   });
   throw new AppError("MEDICAL_DOCUMENT_ACCESS_DENIED", 403, "Access denied");
 }
@@ -77,7 +76,7 @@ function auditDenied(currentUser: CurrentUser, document: MedicalDocumentRecord |
 export async function listAccessibleMedicalDocuments(currentUser: CurrentUser, patientId?: string) {
   if (currentUser.role === "PATIENT") {
     if (patientId && patientId !== currentUser.userId) {
-      writeAuditLog({ action: "medical_document.access_denied", actor: currentUser, patientId, reason: "patient_mismatch" });
+      writeAuditLog({ eventType: "ACCESS_DENIED", actor: currentUser, resourceType: "medical_document", resourceId: patientId, action: "patient_mismatch", result: "DENIED" });
       throw new AppError("MEDICAL_DOCUMENT_ACCESS_DENIED", 403, "Access denied");
     }
     return (await listMedicalDocuments({ patientId: currentUser.userId })).map(serializeDocument);
@@ -102,17 +101,17 @@ export async function createMedicalDocumentUpload(currentUser: CurrentUser, inpu
   const linkedPractitionerId = appointment?.practitionerId ?? input.practitionerId ?? null;
 
   if (input.patientId && input.patientId !== patientId) {
-    writeAuditLog({ action: "medical_document.access_denied", actor: currentUser, patientId: input.patientId, requestId, reason: "appointment_patient_mismatch" });
+    writeAuditLog({ eventType: "ACCESS_DENIED", actor: currentUser, resourceType: "medical_document", resourceId: input.patientId, action: "appointment_patient_mismatch", result: "DENIED", requestId });
     throw new AppError("MEDICAL_DOCUMENT_ACCESS_DENIED", 403, "Access denied");
   }
 
   if (currentUser.role === "PATIENT" && patientId !== currentUser.userId) {
-    writeAuditLog({ action: "medical_document.access_denied", actor: currentUser, patientId, requestId, reason: "upload_patient_mismatch" });
+    writeAuditLog({ eventType: "ACCESS_DENIED", actor: currentUser, resourceType: "medical_document", resourceId: patientId, action: "upload_patient_mismatch", result: "DENIED", requestId });
     throw new AppError("MEDICAL_DOCUMENT_ACCESS_DENIED", 403, "Access denied");
   }
 
   if (currentUser.role === "PRACTITIONER" && linkedPractitionerId !== currentUser.userId) {
-    writeAuditLog({ action: "medical_document.access_denied", actor: currentUser, patientId, requestId, reason: "upload_not_linked" });
+    writeAuditLog({ eventType: "ACCESS_DENIED", actor: currentUser, resourceType: "medical_document", resourceId: patientId, action: "upload_not_linked", result: "DENIED", requestId });
     throw new AppError("MEDICAL_DOCUMENT_ACCESS_DENIED", 403, "Access denied");
   }
 
@@ -131,7 +130,7 @@ export async function createMedicalDocumentUpload(currentUser: CurrentUser, inpu
   });
   const signedUpload = createSignedMedicalDocumentUrl({ objectKey, operation: "upload" });
 
-  writeAuditLog({ action: "medical_document.upload", actor: currentUser, documentId: document.id, patientId, practitionerId: document.practitionerId, appointmentId: document.appointmentId, requestId });
+  writeAuditLog({ eventType: "MEDICAL_DOCUMENT_UPLOADED", actor: currentUser, resourceType: "medical_document", resourceId: document.id, action: "medical_document.upload", result: "SUCCESS", requestId });
 
   return { document: serializeDocument(document), uploadUrl: signedUpload.url, uploadUrlExpiresAt: signedUpload.expiresAt };
 }
@@ -143,7 +142,7 @@ export async function getMedicalDocumentDownload(currentUser: CurrentUser, id: s
   assertAdminDownloadAllowed(currentUser, adminReason);
 
   const signedDownload = createSignedMedicalDocumentUrl({ objectKey: document.objectKey, operation: "download" });
-  writeAuditLog({ action: "medical_document.download", actor: currentUser, documentId: document.id, patientId: document.patientId, practitionerId: document.practitionerId, appointmentId: document.appointmentId, requestId });
+  writeAuditLog({ eventType: "MEDICAL_DOCUMENT_DOWNLOADED", actor: currentUser, resourceType: "medical_document", resourceId: document.id, action: "medical_document.download", result: "SUCCESS", requestId });
 
   return { document: serializeDocument(document), downloadUrl: signedDownload.url, downloadUrlExpiresAt: signedDownload.expiresAt };
 }
@@ -153,6 +152,5 @@ export async function deleteMedicalDocument(currentUser: CurrentUser, id: string
   if (!document) throw new AppError("MEDICAL_DOCUMENT_NOT_FOUND", 404, "Medical document not found");
   assertCanAccessMedicalDocument(currentUser, accessRecord(document));
   const deleted = await softDeleteMedicalDocument(id);
-  writeAuditLog({ action: "medical_document.delete", actor: currentUser, documentId: deleted.id, patientId: deleted.patientId, practitionerId: deleted.practitionerId, appointmentId: deleted.appointmentId, requestId });
   return serializeDocument(deleted);
 }

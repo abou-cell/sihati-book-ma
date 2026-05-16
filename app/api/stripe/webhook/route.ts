@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 
 import { PrismaPaymentRepository } from "@/lib/repositories/payment.repository";
+import { writeAuditLog } from "@/lib/security/audit-log";
 import { AppError, safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
 import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rate-limit";
 import { PaymentService } from "@/lib/services/payment.service";
@@ -36,5 +37,6 @@ export const POST = withErrorHandling(async (request: Request) => {
   }
 
   const result = await service.processStripeEvent(event);
+  writeAuditLog({ eventType: "PAYMENT_WEBHOOK_RECEIVED", resourceType: "payment_webhook", resourceId: event.id, action: event.type, result: "RECEIVED", requestId: request.headers.get("x-request-id") });
   return safeJsonResponse(result);
 });

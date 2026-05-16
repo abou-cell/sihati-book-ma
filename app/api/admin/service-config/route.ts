@@ -5,18 +5,6 @@ import { safeJsonResponse, withErrorHandling } from "@/lib/security/errors";
 import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rate-limit";
 import { toggleServiceConfigSchema, upsertServiceConfigSchema } from "@/lib/validators/service-config";
 
-function logAdminConfigRequest(event: string, payload: { actorUserId: string; provider?: unknown }) {
-  console.info(
-    JSON.stringify({
-      level: "info",
-      event,
-      actorUserId: payload.actorUserId,
-      provider: typeof payload.provider === "string" ? payload.provider : undefined,
-      timestamp: new Date().toISOString(),
-    }),
-  );
-}
-
 export const GET = withErrorHandling(async (request: Request) => {
   const currentUser = requireCurrentUserForApi(request, ["ADMIN"]);
   await enforceRateLimit({ scope: "admin-service-config-read", request, userId: currentUser.userId, ...rateLimitPolicies.strict });
@@ -30,7 +18,6 @@ export const POST = withErrorHandling(async (request: Request) => {
   const currentUser = requireCurrentUserForApi(request, ["ADMIN"]);
   await enforceRateLimit({ scope: "admin-service-config", request, userId: currentUser.userId, ...rateLimitPolicies.adminMutation });
   const body = await request.json();
-  logAdminConfigRequest("service_config.upsert.request", { actorUserId: currentUser.userId, provider: body?.provider });
   const payload = upsertServiceConfigSchema.parse(body);
 
   const config = await appConfigService.upsertServiceConfiguration(payload, currentUser.userId);
@@ -42,7 +29,6 @@ export const PATCH = withErrorHandling(async (request: Request) => {
   const currentUser = requireCurrentUserForApi(request, ["ADMIN"]);
   await enforceRateLimit({ scope: "admin-service-config", request, userId: currentUser.userId, ...rateLimitPolicies.adminMutation });
   const body = await request.json();
-  logAdminConfigRequest("service_config.toggle.request", { actorUserId: currentUser.userId, provider: body?.provider });
   const payload = toggleServiceConfigSchema.parse(body);
 
   const config = await appConfigService.toggleServiceConfiguration(payload, currentUser.userId);
