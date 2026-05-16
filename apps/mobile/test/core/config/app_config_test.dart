@@ -13,6 +13,34 @@ void main() {
       expect(config.enableDebugBanner, isTrue);
     });
 
+    test('provides environment-specific default API URLs', () {
+      expect(
+        AppConfig.defaultApiBaseUrl(AppEnvironment.development),
+        'http://localhost:3000',
+      );
+      expect(
+        AppConfig.defaultApiBaseUrl(AppEnvironment.staging),
+        'https://staging-api.sihati.ma',
+      );
+      expect(
+        AppConfig.defaultApiBaseUrl(AppEnvironment.production),
+        'https://api.sihati.ma',
+      );
+    });
+
+    test('resolves API paths and query parameters', () {
+      const config = AppConfig(
+        environment: AppEnvironment.development,
+        apiBaseUrl: 'http://localhost:3000',
+      );
+
+      expect(
+        config
+            .resolveApiUri('/api/practitioners', {'city': 'Rabat'}).toString(),
+        'http://localhost:3000/api/practitioners?city=Rabat',
+      );
+    });
+
     test('requires HTTPS API URLs outside development', () {
       const config = AppConfig(
         environment: AppEnvironment.staging,
