@@ -25,8 +25,11 @@ Flutter must not connect directly to the database, Stripe, object storage, email
 ├── prisma/                      # Database schema
 ├── tests/                       # Web/API tests
 ├── apps/
-│   └── mobile/
-│       └── README.md            # Placeholder for future Flutter scaffold
+│   └── mobile/                  # Flutter skeleton with Dart source, tests, and docs
+│       ├── lib/
+│       ├── test/
+│       ├── pubspec.yaml
+│       └── README.md
 ├── packages/
 │   └── shared/
 │       └── README.md            # Placeholder for API contracts and shared docs
