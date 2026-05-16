@@ -2,15 +2,16 @@
 
 Flutter mobile app skeleton for Sihati, a Moroccan healthcare appointment booking platform.
 
-This scaffold intentionally does **not** connect to the backend, implement authentication, process payments, upload medical documents, or launch video consultations yet. It provides the production-ready foldering, configuration seams, theme, routing, first screen, and test baseline needed to start mobile development without changing the existing Next.js web app.
+This scaffold intentionally does **not** implement real login, production booking flows, payments, medical document uploads, or video consultations yet. It provides production-ready foldering, configuration seams, theme, routing, a minimal landing screen, secure storage abstraction, and a reusable API client foundation without changing the existing web app.
 
 ## Current scope
 
 - Flutter app under `apps/mobile`.
 - Material 3 theme with a clean, medical, reassuring Sihati brand style.
 - Responsive landing screen for small and larger mobile/tablet widths.
-- Placeholder network, storage, error, routing, and feature directories.
-- Environment validation that allows local HTTP only in development and requires HTTPS for staging/production.
+- Environment configuration for local development, staging, and production.
+- Reusable HTTP API client with safe timeout handling, JSON parsing, bearer-token injection seams, and standardized error mapping.
+- Secure token storage abstraction using `flutter_secure_storage`.
 - Widget and configuration test baselines for the initial screen and mobile runtime settings.
 
 ## Run locally
@@ -24,6 +25,12 @@ flutter test
 flutter run --dart-define=APP_ENV=development --dart-define=API_BASE_URL=http://localhost:3000
 ```
 
+Android emulators often need the host loopback alias instead of `localhost`:
+
+```bash
+flutter run --dart-define=APP_ENV=development --dart-define=API_BASE_URL=http://10.0.2.2:3000
+```
+
 Root-level convenience scripts are also available for CI and monorepo workflows:
 
 ```bash
@@ -34,13 +41,52 @@ npm run mobile:test
 npm run mobile:check
 ```
 
-For staging and production, `API_BASE_URL` must be HTTPS:
+## Environment configuration
+
+The app reads configuration from Flutter `--dart-define` values in `lib/core/config/app_config.dart`.
+
+| Environment | `APP_ENV` | Default API base URL | HTTPS required |
+| --- | --- | --- | --- |
+| Local development | `development` | `http://localhost:3000` | No |
+| Staging | `staging` | `https://staging-api.sihati.ma` | Yes |
+| Production | `production` | `https://api.sihati.ma` | Yes |
+
+Example staging run:
 
 ```bash
 flutter run \
   --dart-define=APP_ENV=staging \
-  --dart-define=API_BASE_URL=https://staging.example.com
+  --dart-define=API_BASE_URL=https://staging-api.sihati.ma
 ```
+
+Example production build:
+
+```bash
+flutter build appbundle \
+  --dart-define=APP_ENV=production \
+  --dart-define=API_BASE_URL=https://api.sihati.ma
+```
+
+Optional values:
+
+```bash
+--dart-define=APP_NAME=Sihati
+--dart-define=API_TIMEOUT_SECONDS=20
+```
+
+Do not hardcode production secrets in Dart code or pass privileged backend secrets through `--dart-define`. Base URLs are configuration, not secrets; signing keys and deployment credentials belong in CI/CD and native platform secret management.
+
+## API client architecture
+
+The reusable client lives in `lib/core/network/api_client.dart` and is supported by:
+
+- `lib/core/network/api_endpoints.dart` for backend route constants.
+- `lib/core/config/app_config.dart` for base URL, environment, HTTPS, localhost, and timeout validation.
+- `lib/core/errors/app_exception.dart` for normalized mobile error categories.
+- `lib/shared/models/api_response.dart` for response-envelope and JSON parsing helpers.
+- `lib/core/storage/secure_storage_service.dart` for future auth and refresh token persistence.
+
+The client currently supports `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`, applies JSON headers, injects a bearer token when a token provider or secure storage is wired, and maps failures into `AppException` categories. Real login and token refresh are intentionally left for a later mobile authentication phase.
 
 ## Generated platform files
 
@@ -62,47 +108,18 @@ apps/mobile/
 │   ├── app.dart
 │   ├── core/
 │   │   ├── config/          # Environment and build-time configuration
-│   │   ├── errors/          # Shared app error types
-│   │   ├── network/         # Future typed API client boundary
+│   │   ├── errors/          # Shared app exception types
+│   │   ├── network/         # Reusable API client and endpoint constants
 │   │   ├── routing/         # Route names and route factory
-│   │   ├── storage/         # Future secure storage boundary
+│   │   ├── storage/         # Secure token storage abstraction
 │   │   └── theme/           # Material 3 theme and brand tokens
 │   ├── features/
-│   │   ├── appointments/
-│   │   ├── auth/
-│   │   ├── booking/
-│   │   ├── home/
-│   │   ├── practitioner/
-│   │   ├── profile/
-│   │   ├── search/
-│   │   └── video_consultation/
 │   └── shared/
-│       ├── models/
+│       ├── models/          # Shared response models and parsing helpers
 │       └── widgets/
 └── test/
 ```
 
-## Future Sihati API integration
+## More documentation
 
-Later phases should connect Flutter to the existing Next.js API through a typed HTTP client in `lib/core/network`. The client should:
-
-1. Use `AppConfig.apiBaseUrl` from `--dart-define` values for dev, staging, and production.
-2. Require HTTPS for staging and production and keep local HTTP confined to development builds.
-3. Log only redacted origins such as `AppConfig.apiOriginForDiagnostics`, never full URLs that may contain query strings.
-4. Send bearer tokens only after the production mobile authentication strategy is approved.
-5. Normalize Sihati response envelopes: `{ "data": ... }` for success and `{ "error": { "code", "message", "details" } }` for failures.
-6. Preserve server error codes for UX, support, and telemetry.
-7. Redact tokens, PHI, document URLs, payment identifiers, and appointment details from logs.
-8. Add retries only for idempotent read endpoints and never blindly retry appointment or payment creation.
-
-Flutter must not connect directly to the database, Stripe, object storage, email providers, or video providers. The Next.js backend remains the trust boundary for authentication, RBAC, validation, rate limiting, audit logging, idempotency, signed URLs, payments, and video access decisions.
-
-## Testing and deployment best practices
-
-- Keep widget tests close to feature UI and add unit tests for routing, error mapping, configuration, and API clients before adding real integrations.
-- Run the root `mobile:check` script in CI once Flutter is installed on the runner.
-- Add integration tests only after platform folders are generated and stable.
-- Run `flutter analyze`, `flutter test`, and formatting checks in CI for `apps/mobile`.
-- Use separate build flavors or `--dart-define` sets for development, staging, and production.
-- Keep secrets out of source control; inject environment-specific values through CI/CD and native secret stores.
-- Gate mobile releases on backend contract tests for mobile-critical endpoints.
+See `docs/mobile/api-integration.md` for the API contract assumptions, environment setup, security limitations, future token handling, and testing/deployment recommendations.
