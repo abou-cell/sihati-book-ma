@@ -12,7 +12,7 @@ The application is a single Next.js App Router codebase that contains:
 - Repository/data access modules under `lib/repositories/` and Prisma access through `lib/db/prisma.ts`.
 - Security, auth, validation, and runtime configuration modules under `lib/`.
 - Shared UI and layout components under `components/`.
-- Prisma schema under `prisma/schema.prisma`.
+- Prisma schema under `prisma/schema.prisma`; migration, backup, rollback, restore-test, and seed-data operations are defined in `docs/database-production-runbook.md`.
 - Unit/API tests under `tests/`.
 
 ```mermaid
@@ -372,7 +372,7 @@ Runtime validation is centralized in `lib/env.ts`. Copy `.env.example` to `.env.
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_APP_URL` | Public | Required | Canonical app URL used by browser and server. |
 | `NODE_ENV` | Server | Required | Runtime mode: `development`, `test`, or `production`. |
-| `DATABASE_URL` | Server | Required | Prisma database connection string. |
+| `DATABASE_URL` | Server | Required | Server-only PostgreSQL connection string used by Prisma; see `docs/database-production-runbook.md` for migration-role, backup, and restore expectations. |
 | `AUTH_SECRET` | Server | Required | Secret for production session/JWT signing or auth integration. |
 | `APP_ENCRYPTION_KEY` | Server | Required | Base64 32-byte key for AES-256-GCM encrypted service secrets. |
 | `STRIPE_SECRET_KEY` | Server | Required when payments are active | Stripe API key. |
@@ -430,10 +430,10 @@ flowchart TD
 Minimum release gates:
 
 - Verified production authentication.
-- Database migrations deployed and tested.
+- Database migrations deployed and tested with the `docs/database-production-runbook.md` workflow.
 - HTTPS enforced end-to-end.
 - Secrets stored outside Git.
-- Backups and restore procedure validated.
+- Backups and restore procedure validated using the `docs/database-production-runbook.md` restore drill.
 - `npm run check` and `npm run build` passing in CI.
 
 ## Medical document storage architecture

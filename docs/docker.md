@@ -20,7 +20,7 @@ The development container runs:
 npx prisma generate && npx prisma db push && npm run dev
 ```
 
-This keeps the local PostgreSQL schema aligned with `prisma/schema.prisma` without requiring a migration history during MVP stabilization.
+This keeps the local PostgreSQL schema aligned with `prisma/schema.prisma` for disposable Docker development. For schema changes intended to ship, create checked-in migrations with `npx prisma migrate dev --name <change>` and follow `docs/database-production-runbook.md`.
 
 ## Environment variables
 
@@ -87,7 +87,7 @@ Run:
 docker compose exec app npx prisma db push
 ```
 
-For production releases, replace `db push` with checked-in Prisma migrations and `prisma migrate deploy`.
+For staging and production releases, replace `db push` with checked-in Prisma migrations and `npm run prisma:migrate:deploy` as described in `docs/database-production-runbook.md`.
 
 ### Environment variable failures
 
