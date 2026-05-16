@@ -1,0 +1,16 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Generated platform folders (android/, ios/, web/, etc.) may be committed once reviewed.
+
+# Local environment and editor files.
+.env
+.env.*
+!.env.example
+*.iml
+.idea/
+.vscode/
