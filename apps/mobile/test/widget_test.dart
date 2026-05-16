@@ -13,7 +13,9 @@ void main() {
 
     expect(find.text('Sihati'), findsOneWidget);
     expect(
-      find.text('Book an appointment with a healthcare professional in Morocco'),
+      find.text(
+        'Book an appointment with a healthcare professional in Morocco',
+      ),
       findsOneWidget,
     );
     expect(find.text('Find a practitioner'), findsOneWidget);
