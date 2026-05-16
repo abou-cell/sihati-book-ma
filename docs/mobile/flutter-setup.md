@@ -25,6 +25,16 @@ flutter run \
   --dart-define=API_BASE_URL=http://localhost:3000
 ```
 
+For root-level monorepo workflows and CI, use:
+
+```bash
+npm run mobile:pub-get
+npm run mobile:format
+npm run mobile:analyze
+npm run mobile:test
+npm run mobile:check
+```
+
 Staging and production builds must use HTTPS API URLs:
 
 ```bash
@@ -50,8 +60,9 @@ After generation, review and commit the platform folders in a dedicated mobile p
 
 - Keep the backend as the trust boundary for RBAC, validation, appointment ownership, payments, signed URLs, audit logs, and video access.
 - Use bearer tokens only after the mobile authentication provider is selected and backend token verification is implemented.
+- Keep local HTTP API URLs restricted to development; staging and production must use HTTPS and must not point at localhost.
 - Store future refresh tokens or sensitive session state only in platform secure storage.
-- Redact tokens, PHI, medical document URLs, appointment identifiers, payment identifiers, and provider secrets from logs.
+- Redact tokens, PHI, medical document URLs, appointment identifiers, payment identifiers, full query strings, and provider secrets from logs.
 - Do not use development demo headers in a released mobile app.
 
 ### Networking
@@ -64,7 +75,7 @@ After generation, review and commit the platform folders in a dedicated mobile p
 
 ### Testing
 
-- Run `flutter analyze` and `flutter test` for every mobile change.
+- Run `npm run mobile:check` or, at minimum, `flutter analyze` and `flutter test` for every mobile change.
 - Add unit tests for configuration, routing, API envelope parsing, and error mapping before real backend integration.
 - Add widget tests for every feature screen.
 - Add integration tests for login, search, booking, and logout only after production auth and platform projects exist.
@@ -73,7 +84,7 @@ After generation, review and commit the platform folders in a dedicated mobile p
 ### Deployment
 
 - Use separate development, staging, and production build definitions.
-- Inject `APP_ENV` and `API_BASE_URL` through CI/CD rather than hard-coding environment values.
+- Inject `APP_ENV` and `API_BASE_URL` through CI/CD rather than hard-coding environment values, and keep production builds on HTTPS-only endpoints.
 - Keep signing keys, upload keys, provisioning profiles, and API secrets outside Git.
 - Add release smoke tests for startup, routing, API configuration, and crash-free launch.
 - Publish through staged rollouts and monitor crash reporting, API errors, and patient-impacting funnel metrics.
