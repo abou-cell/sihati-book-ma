@@ -447,3 +447,20 @@ Access is intentionally narrow:
 - Patients may list, upload, download, and soft-delete their own documents.
 - Practitioners may access documents explicitly shared to their practitioner ID or linked to an appointment they own.
 - Administrators may list metadata for support/compliance. Download access is disabled unless `MEDICAL_DOCUMENT_ADMIN_DOWNLOADS_ENABLED=true` and a documented access reason is supplied for a break-glass workflow.
+
+## Structured audit logging architecture
+
+Sensitive workflows emit centralized audit events through `lib/security/audit-log.ts`. The module defines a closed event vocabulary for authentication, authorization denials, appointment lifecycle events, video join attempts, medical-document upload/download, payment checkout/webhooks, and admin service configuration changes.
+
+Audit payloads are allow-listed instead of free-form. A valid event may contain only actor ID/role, resource type/ID, action, result, timestamp, and request ID. The logger also exposes redaction helpers for defensive sanitization of incidental diagnostics, including secrets, tokens, cookies, Authorization headers, PHI-shaped values, raw webhook bodies, decrypted configuration, and signed URL query parameters.
+
+Current producers include:
+
+- Auth/current-user and access-control helpers for `AUTH_SUCCESS`, `AUTH_FAILURE`, and `ACCESS_DENIED`.
+- Appointment creation API for `APPOINTMENT_CREATED`.
+- Video consultation service for `VIDEO_JOIN_ATTEMPT`.
+- Medical document service for `MEDICAL_DOCUMENT_UPLOADED`, `MEDICAL_DOCUMENT_DOWNLOADED`, and medical-document access denials.
+- Payment checkout and Stripe webhook APIs for `PAYMENT_CHECKOUT_CREATED` and `PAYMENT_WEBHOOK_RECEIVED`.
+- Admin service configuration service for `ADMIN_SERVICE_CONFIG_CHANGED` without decrypted secrets or provider credentials.
+
+Future modules that handle prescriptions, lab results, imaging, or other medical documents must use the same audit module and must not introduce route-local logging schemas.

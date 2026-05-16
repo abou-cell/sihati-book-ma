@@ -89,9 +89,9 @@ describe("VideoConsultationService", () => {
 
     expect(info).toHaveBeenCalled();
     const logged = info.mock.calls.map((call) => String(call[0])).join("\n");
-    expect(logged).toContain("video_consultation.join_attempt");
+    expect(logged).toContain("VIDEO_JOIN_ATTEMPT");
+    expect(logged).toContain("video.join");
     expect(logged).not.toContain(result.access.roomToken);
-    expect(logged).not.toContain("patient_1");
-    expect(logged).not.toContain("prac_1");
+    expect(logged).not.toContain(result.access.joinUrl);
   });
 });

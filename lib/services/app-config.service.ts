@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
+import { writeAuditLog } from "@/lib/security/audit-log";
 import { encryptJson, type EncryptedPayload, maskSecret } from "@/lib/security/encryption";
 import { AppError } from "@/lib/security/errors";
 import type { ServiceProvider, ToggleServiceConfigInput, UpsertServiceConfigInput } from "@/lib/validators/service-config";
@@ -91,17 +92,15 @@ function toSafeConfig(record: ServiceConfigurationRecord): SafeServiceConfigurat
 }
 
 function logConfigAttempt(event: string, payload: { provider?: ServiceProvider; actorUserId: string; success: boolean; reason?: string }) {
-  console.info(
-    JSON.stringify({
-      level: "info",
-      event,
-      provider: payload.provider,
-      actorUserId: payload.actorUserId,
-      success: payload.success,
-      reason: payload.reason,
-      timestamp: new Date().toISOString(),
-    }),
-  );
+  writeAuditLog({
+    eventType: "ADMIN_SERVICE_CONFIG_CHANGED",
+    actorUserId: payload.actorUserId,
+    actorRole: "ADMIN",
+    resourceType: "service_configuration",
+    resourceId: payload.provider,
+    action: payload.reason ? `${event}.${payload.reason}` : event,
+    result: payload.success ? "SUCCESS" : "FAILURE",
+  });
 }
 
 export class AppConfigService {

@@ -1,6 +1,7 @@
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { getCurrentUserFromRequest, requireRolesForApi } from "@/lib/auth/current-user";
 import type { UserRole } from "@/lib/auth/permissions";
+import { writeAuditLog } from "@/lib/security/audit-log";
 import { AppError } from "@/lib/security/errors";
 
 export type { UserRole };
@@ -30,7 +31,12 @@ export function requireRole(currentRole: UserRole, allowed: readonly UserRole[])
 
 export function requireUserContext(request: Request, allowed: readonly UserRole[]): CurrentUser {
   const currentUser = getUserContext(request);
-  requireRole(currentUser.role, allowed);
+  try {
+    requireRole(currentUser.role, allowed);
+  } catch (error) {
+    writeAuditLog({ eventType: "ACCESS_DENIED", actor: currentUser, action: "auth.role_check", result: "DENIED", requestId: request.headers.get("x-request-id") });
+    throw error;
+  }
   return currentUser;
 }
 

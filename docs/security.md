@@ -130,3 +130,28 @@ Medical files must remain in private storage. The application creates opaque obj
 Upload validation is centralized in `lib/security/upload.ts` and enforces an allowlist of PDF, JPEG, and PNG MIME types, matching file extensions, blocked executable/script extensions, safe normalized filenames, maximum size, and SHA-256 checksum format. The API should add malware scanning before marking documents `AVAILABLE` in production storage workflows.
 
 Operational logging must never include PHI, file contents, raw object keys, signed URLs, authorization tokens, cookies, or checksum values. Medical-document audit logs record event type, role, hashed identifiers, request ID, and non-PHI denial reasons for upload, download, delete, and access-denied events.
+
+## Structured audit logging policy
+
+Sihati uses `lib/security/audit-log.ts` as the only audit logging entry point for sensitive workflows. Audit logs are structured JSON events and are intentionally limited to safe operational metadata:
+
+- `actorUserId`
+- `actorRole`
+- `resourceType`
+- `resourceId`
+- `action`
+- `result`
+- `timestamp`
+- `requestId` when available
+
+Audit logs must never include PHI, patient names, emails, phone numbers, symptoms, appointment notes, file names, document contents, decrypted service configuration, secrets, tokens, cookies, Authorization headers, Stripe raw webhook bodies, room tokens, checkout URLs, signed medical-document URLs, or storage object keys. Use `redactForAudit` or `redactSignedUrl` before logging any diagnostic value that was not produced by the centralized audit logger.
+
+Current audit event types are: `AUTH_SUCCESS`, `AUTH_FAILURE`, `ACCESS_DENIED`, `APPOINTMENT_CREATED`, `APPOINTMENT_CANCELLED`, `VIDEO_JOIN_ATTEMPT`, `MEDICAL_DOCUMENT_UPLOADED`, `MEDICAL_DOCUMENT_DOWNLOADED`, `PAYMENT_CHECKOUT_CREATED`, `PAYMENT_WEBHOOK_RECEIVED`, and `ADMIN_SERVICE_CONFIG_CHANGED`.
+
+Implementation rules:
+
+1. Do not call `console.info` directly for sensitive workflow audit trails; call `writeAuditLog`.
+2. Do not pass whole request bodies, headers, webhook events, Stripe objects, provider responses, patient DTOs, or service configuration values into logs.
+3. Log success, denial, and provider webhook receipt using stable internal IDs only.
+4. Keep human-readable PHI in user-facing responses or encrypted storage only, never in log payloads.
+5. Add tests when introducing a new audit event or metadata field.
