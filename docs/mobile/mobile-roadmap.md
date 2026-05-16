@@ -88,7 +88,7 @@ Use this temporary structure now:
 ├── prisma/                      # Existing Prisma schema remains at root
 ├── tests/                       # Existing web/API tests remain at root
 ├── apps/
-│   └── mobile/                  # Reserved Flutter app location; no Flutter implementation yet
+│   └── mobile/                  # Flutter skeleton; platform folders generated later
 ├── packages/
 │   └── shared/                  # Reserved shared contracts/docs location; no package build yet
 └── docs/
@@ -112,13 +112,13 @@ Future target structure after a dedicated migration branch validates CI, Docker,
 
 ## Mobile development phases
 
-### Phase 0 — Repository preparation (current task)
+### Phase 0 — Repository preparation
 
 - Keep the production web app at the root.
-- Reserve `apps/mobile` for the future Flutter project.
+- Reserve `apps/mobile` for the Flutter project.
 - Reserve `packages/shared` for API contracts and generated artifacts.
 - Document current API/auth limitations and migration risks.
-- Do not create Flutter UI, Dart screens, backend logic, or route changes yet.
+- Avoid backend logic or route changes in mobile preparation branches.
 
 ### Phase 1 — API contract stabilization
 
@@ -136,9 +136,10 @@ Future target structure after a dedicated migration branch validates CI, Docker,
 
 ### Phase 3 — Flutter scaffold only
 
-- Generate Flutter under `apps/mobile`.
-- Add `README.md`, flavor/environment files, lint rules, test baseline, and CI checks.
-- Do not implement feature screens until API contracts and auth integration are approved.
+- Maintain the Flutter skeleton under `apps/mobile`.
+- Add or refine `README.md`, environment configuration, lint rules, test baselines, and CI checks.
+- Generate platform folders (`android/`, `ios/`) in a dedicated branch when bundle IDs, signing, app icons, platform permissions, and CI secrets are ready.
+- Do not implement backend-connected feature flows until API contracts and auth integration are approved.
 
 ### Phase 4 — Read-only patient MVP
 
