@@ -10,6 +10,18 @@ import '../storage/secure_storage_service.dart';
 
 typedef TokenProvider = Future<String?> Function();
 
+class ApiRequestOptions {
+  const ApiRequestOptions({
+    this.includeAuthToken = true,
+    this.headers = const {},
+    this.timeout,
+  });
+
+  final bool includeAuthToken;
+  final Map<String, String> headers;
+  final Duration? timeout;
+}
+
 class ApiClient {
   ApiClient({
     required this.config,
@@ -28,12 +40,14 @@ class ApiClient {
   Future<T> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
+    ApiRequestOptions options = const ApiRequestOptions(),
     required T Function(Object? json) parser,
   }) {
     return _send(
       'GET',
       path,
       queryParameters: queryParameters,
+      options: options,
       parser: parser,
     );
   }
@@ -42,6 +56,7 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, dynamic>? queryParameters,
+    ApiRequestOptions options = const ApiRequestOptions(),
     required T Function(Object? json) parser,
   }) {
     return _send(
@@ -49,6 +64,7 @@ class ApiClient {
       path,
       body: body,
       queryParameters: queryParameters,
+      options: options,
       parser: parser,
     );
   }
@@ -57,6 +73,7 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, dynamic>? queryParameters,
+    ApiRequestOptions options = const ApiRequestOptions(),
     required T Function(Object? json) parser,
   }) {
     return _send(
@@ -64,6 +81,7 @@ class ApiClient {
       path,
       body: body,
       queryParameters: queryParameters,
+      options: options,
       parser: parser,
     );
   }
@@ -72,6 +90,7 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, dynamic>? queryParameters,
+    ApiRequestOptions options = const ApiRequestOptions(),
     required T Function(Object? json) parser,
   }) {
     return _send(
@@ -79,6 +98,7 @@ class ApiClient {
       path,
       body: body,
       queryParameters: queryParameters,
+      options: options,
       parser: parser,
     );
   }
@@ -87,6 +107,7 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, dynamic>? queryParameters,
+    ApiRequestOptions options = const ApiRequestOptions(),
     required T Function(Object? json) parser,
   }) {
     return _send(
@@ -94,6 +115,7 @@ class ApiClient {
       path,
       body: body,
       queryParameters: queryParameters,
+      options: options,
       parser: parser,
     );
   }
@@ -101,11 +123,13 @@ class ApiClient {
   Future<ApiResponse<T>> getEnvelope<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
+    ApiRequestOptions options = const ApiRequestOptions(),
     required T Function(Object? json) parser,
   }) {
     return get<ApiResponse<T>>(
       path,
       queryParameters: queryParameters,
+      options: options,
       parser: (json) => ApiResponse.fromJson(json, parser),
     );
   }
@@ -119,37 +143,47 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, dynamic>? queryParameters,
+    ApiRequestOptions options = const ApiRequestOptions(),
     required T Function(Object? json) parser,
   }) async {
     final uri = config.resolveApiUri(path, queryParameters);
     final request = http.Request(method, uri)
-      ..headers.addAll(await _defaultHeaders());
+      ..headers.addAll(await _defaultHeaders(options));
 
     if (body != null) {
       request.body = jsonEncode(body);
     }
 
-    final response = await _safeSend(request);
+    final response = await _safeSend(request, options.timeout);
     final decodedBody = _decodeBody(response);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw _exceptionForResponse(response.statusCode, decodedBody);
     }
 
-    return parser(decodedBody);
+    try {
+      return parser(decodedBody);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException.parsing(details: error.toString());
+    }
   }
 
-  Future<Map<String, String>> _defaultHeaders() async {
+  Future<Map<String, String>> _defaultHeaders(ApiRequestOptions options) async {
     final headers = <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
     };
 
-    final token = await _readAuthToken();
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
+    if (options.includeAuthToken) {
+      final token = (await _readAuthToken())?.trim();
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
     }
 
+    headers.addAll(options.headers);
     return headers;
   }
 
@@ -166,10 +200,13 @@ class ApiClient {
     return Future.value();
   }
 
-  Future<http.Response> _safeSend(http.Request request) async {
+  Future<http.Response> _safeSend(
+    http.Request request,
+    Duration? requestTimeout,
+  ) async {
     try {
-      final streamedResponse =
-          await _httpClient.send(request).timeout(config.apiTimeout);
+      final timeout = requestTimeout ?? config.apiTimeout;
+      final streamedResponse = await _httpClient.send(request).timeout(timeout);
       return http.Response.fromStream(streamedResponse);
     } on TimeoutException catch (error) {
       throw AppException.timeout(details: error.toString());

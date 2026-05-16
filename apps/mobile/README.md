@@ -74,6 +74,8 @@ Optional values:
 --dart-define=API_TIMEOUT_SECONDS=20
 ```
 
+Timeout values are bounded between 5 and 60 seconds to avoid hanging mobile requests and to keep release behavior predictable.
+
 Do not hardcode production secrets in Dart code or pass privileged backend secrets through `--dart-define`. Base URLs are configuration, not secrets; signing keys and deployment credentials belong in CI/CD and native platform secret management.
 
 ## API client architecture
@@ -86,7 +88,7 @@ The reusable client lives in `lib/core/network/api_client.dart` and is supported
 - `lib/shared/models/api_response.dart` for response-envelope and JSON parsing helpers.
 - `lib/core/storage/secure_storage_service.dart` for future auth and refresh token persistence.
 
-The client currently supports `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`, applies JSON headers, injects a bearer token when a token provider or secure storage is wired, and maps failures into `AppException` categories. Real login and token refresh are intentionally left for a later mobile authentication phase.
+The client currently supports `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`, applies JSON headers, supports per-request options for public calls/custom headers/timeouts, injects a bearer token when a token provider or secure storage is wired, and maps failures into `AppException` categories. Real login and token refresh are intentionally left for a later mobile authentication phase.
 
 ## Generated platform files
 

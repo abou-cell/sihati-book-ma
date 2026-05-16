@@ -17,7 +17,7 @@ void main() {
     test('injects bearer token from token provider', () async {
       final client = ApiClient(
         config: config,
-        tokenProvider: () async => 'test-token',
+        tokenProvider: () async => ' test-token ',
         httpClient: MockClient((request) async {
           expect(request.headers['Authorization'], 'Bearer test-token');
           return http.Response(jsonEncode({'data': true}), 200);
@@ -26,6 +26,25 @@ void main() {
 
       final result = await client.get<bool>(
         '/api/health',
+        parser: (json) => (json as Map<String, dynamic>)['data'] as bool,
+      );
+
+      expect(result, isTrue);
+    });
+
+    test('can disable auth injection for public requests', () async {
+      final client = ApiClient(
+        config: config,
+        tokenProvider: () async => 'test-token',
+        httpClient: MockClient((request) async {
+          expect(request.headers.containsKey('Authorization'), isFalse);
+          return http.Response(jsonEncode({'data': true}), 200);
+        }),
+      );
+
+      final result = await client.get<bool>(
+        '/api/health',
+        options: const ApiRequestOptions(includeAuthToken: false),
         parser: (json) => (json as Map<String, dynamic>)['data'] as bool,
       );
 
@@ -78,6 +97,64 @@ void main() {
             (error) => error.type,
             'type',
             AppExceptionType.network,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('ApiClient error mapping', () {
+    for (final entry in <int, AppExceptionType>{
+      401: AppExceptionType.unauthorized,
+      403: AppExceptionType.forbidden,
+      404: AppExceptionType.notFound,
+      422: AppExceptionType.validation,
+      500: AppExceptionType.server,
+    }.entries) {
+      test('maps ${entry.key} to ${entry.value}', () async {
+        final client = ApiClient(
+          config: config,
+          httpClient: MockClient((request) async {
+            return http.Response(
+              jsonEncode({
+                'error': {'message': 'Mapped failure'},
+              }),
+              entry.key,
+            );
+          }),
+        );
+
+        expect(
+          () => client.get<void>('/api/failure', parser: (_) {}),
+          throwsA(
+            isA<AppException>().having(
+              (error) => error.type,
+              'type',
+              entry.value,
+            ),
+          ),
+        );
+      });
+    }
+
+    test('wraps parser failures as parsing exceptions', () async {
+      final client = ApiClient(
+        config: config,
+        httpClient: MockClient((request) async {
+          return http.Response(jsonEncode({'data': true}), 200);
+        }),
+      );
+
+      expect(
+        () => client.get<String>(
+          '/api/health',
+          parser: (json) => (json as Map<String, dynamic>)['missing'] as String,
+        ),
+        throwsA(
+          isA<AppException>().having(
+            (error) => error.type,
+            'type',
+            AppExceptionType.parsing,
           ),
         ),
       );

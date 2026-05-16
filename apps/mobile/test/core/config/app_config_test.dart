@@ -35,9 +35,13 @@ void main() {
       );
 
       expect(
-        config
-            .resolveApiUri('/api/practitioners', {'city': 'Rabat'}).toString(),
-        'http://localhost:3000/api/practitioners?city=Rabat',
+        config.resolveApiUri('/api/practitioners', {
+          'city': 'Rabat',
+          'specialties': ['cardiology', 'dermatology'],
+          'empty': null,
+        }).toString(),
+        'http://localhost:3000/api/practitioners?city=Rabat'
+        '&specialties=cardiology&specialties=dermatology',
       );
     });
 
@@ -54,6 +58,16 @@ void main() {
       const config = AppConfig(
         environment: AppEnvironment.production,
         apiBaseUrl: 'https://localhost:3000',
+      );
+
+      expect(config.validate, throwsArgumentError);
+    });
+
+    test('rejects unsafe timeout values supplied directly', () {
+      const config = AppConfig(
+        environment: AppEnvironment.development,
+        apiBaseUrl: 'http://localhost:3000',
+        apiTimeout: Duration(seconds: 90),
       );
 
       expect(config.validate, throwsArgumentError);

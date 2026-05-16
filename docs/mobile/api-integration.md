@@ -62,7 +62,7 @@ Configuration safeguards:
 - Production defaults to `https://api.sihati.ma`.
 - Staging and production reject non-HTTPS API URLs.
 - Production rejects localhost URLs.
-- Timeouts must be positive.
+- Timeouts are clamped to 5–60 seconds when read from `--dart-define` and directly constructed configs outside that range are rejected.
 
 ## API response format
 
@@ -117,7 +117,7 @@ The mobile app is an untrusted client. Anything shipped in the app bundle can be
 
 ## Future token handling
 
-`SecureStorageService` wraps `flutter_secure_storage` and reserves keys for an auth token and refresh token. The API client can inject a bearer token from either:
+`SecureStorageService` wraps `flutter_secure_storage`, enables encrypted shared preferences on Android, uses a device-bound keychain accessibility policy on iOS, and reserves keys for an auth token and refresh token. The API client can inject a bearer token from either:
 
 1. `SecureStorageService.readAuthToken()`, or
 2. a custom `TokenProvider` supplied during tests or future dependency injection wiring.
@@ -134,7 +134,7 @@ Real login is not implemented yet. A future authentication prompt should add:
 ## Testing and deployment best practices
 
 - Unit test `AppConfig` validation for every environment.
-- Unit test `ApiClient` status-code mapping with mocked HTTP clients.
+- Unit test `ApiClient` status-code mapping with mocked HTTP clients, including public requests that disable bearer token injection.
 - Unit test JSON parsing helpers against success, empty, list, and malformed responses.
 - Run `flutter format`, `flutter analyze`, and `flutter test` in CI.
 - Keep staging and production build definitions separate.
