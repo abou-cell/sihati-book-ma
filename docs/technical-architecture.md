@@ -1,6 +1,25 @@
 # Sihati Technical Architecture
 
-Sihati is a Next.js and TypeScript medical appointment booking platform for patient booking, practitioner availability, admin configuration, secure Stripe payments, notifications, and video consultation entry points. This document describes the production-oriented architecture as it exists today and the operational boundaries that must be preserved during stabilization.
+Sihati is a Next.js and TypeScript medical appointment booking platform for patient booking, practitioner availability, admin configuration, payments, notifications, and video consultation entry points. This document describes the production-oriented architecture, the target operating model, and the boundaries that must be preserved during stabilization. It does not mark placeholder or unvalidated flows as approved for live traffic.
+
+## Production readiness status
+
+Sihati is production-oriented, but it is **not yet approved for live production traffic**. The codebase has a clear App Router structure, service/repository boundaries, PostgreSQL/Prisma data access, documented deployment targets, and security controls that are intended for production. Release approval still depends on replacing MVP placeholders, validating provider integrations, and proving the operational runbooks in a staging environment.
+
+Treat this document as the architecture baseline for the next release hardening phase. A feature is production-ready only when the implementation, tests, environment configuration, monitoring, and rollback procedure are all complete.
+
+### Release blockers
+
+The following items must be closed before handling real patient traffic, real payments, or live medical documents:
+
+- **Production authentication:** use a real production identity provider or signed-session implementation, disable demo identity headers, and verify server-side ownership on every protected resource. See [Authentication](authentication.md).
+- **Shared rate limiting:** use a shared Redis/Upstash-compatible limiter for all production instances; in-memory limits are local/test only. See [Security](security.md).
+- **Stripe checkout/webhook implementation:** complete and verify checkout creation, webhook signature validation, idempotency, payment state transitions, and tests before accepting real payments. See [Stripe payments](payments.md).
+- **Medical document storage/access controls:** keep file bytes private, return only authorized short-lived links, audit access, and confirm patient/practitioner/admin policies before enabling uploads. See [Privacy](privacy.md).
+- **Database-backed replacement of demo/sample data:** remove sample dashboard, success-page, and placeholder flows from production paths or back them with authorized database queries.
+- **Prisma migration/backup/restore validation:** run migration deployment and restore drills against production-like data before release. See [Database production runbook](database-production-runbook.md).
+- **Docker build validation in CI:** build the production image in CI when Docker deployment is used. See [Docker local deployment](docker.md).
+- **E2E and staging smoke tests:** cover booking, auth, payments, medical documents, video entry, admin configuration, and rollback-critical paths before release. See [Testing](testing.md).
 
 ## 1. Global architecture
 
@@ -88,8 +107,8 @@ Current API routes include:
 | `GET /api/practitioners/[id]/available-slots` | Public | Generate available appointment slots with a safe public lookup rate limit. |
 | `POST /api/appointments` | Protected | Create appointments for authenticated patients with a medium per-user/IP creation limit. |
 | `GET /api/medical-documents` | Protected placeholder | Reserved until storage rules are complete; guarded by strict per-user/IP limits. |
-| `POST /api/payments/checkout` | Protected | Creates Stripe Checkout Sessions for authenticated patient-owned pending appointments. |
-| `POST /api/stripe/webhook` | Provider endpoint | Verifies Stripe signatures over the raw body and processes idempotent payment events. |
+| `POST /api/payments/checkout` | Protected release blocker | Target route for creating Stripe Checkout Sessions for authenticated patient-owned pending appointments; must be fully implemented and verified before real payments. |
+| `POST /api/stripe/webhook` | Provider release blocker | Target route for verifying Stripe signatures over the raw body and processing idempotent payment events; must be fully implemented and verified before real payments. |
 | `GET/POST/PATCH /api/admin/service-config` | Admin only | Manage external service configuration records; mutations use a medium admin per-user/IP limit. |
 | `GET /api/reviews` | Placeholder | Reserved for review data with public rate limiting. |
 
@@ -144,12 +163,13 @@ flowchart LR
 
 ## 6. Authentication flow
 
-Current production state:
+Current authentication boundary:
 
-- Authentication is centralized in `lib/auth/current-user.ts` and `lib/auth/session.ts`.
-- Production authentication uses a signed `sihati_session` token verified with `AUTH_SECRET`; the same signed token may be supplied as `Authorization: Bearer <token>` for non-browser API clients.
-- Demo headers (`x-user-id`, `x-user-role`) are accepted only when `NODE_ENV !== "production"`. In production, either header causes the request to fail with `DEMO_AUTH_FORBIDDEN`.
-- `NODE_ENV=production` fails closed if `AUTH_SECRET` is missing or shorter than 32 characters.
+- Authentication helpers are centralized in `lib/auth/current-user.ts` and `lib/auth/session.ts`.
+- Production authentication remains a release blocker until the selected provider or signed-session implementation is verified end to end in staging.
+- The target signed-session path uses a `sihati_session` token verified with `AUTH_SECRET`; the same signed token may be supplied as `Authorization: Bearer <token>` for non-browser API clients if that path is approved.
+- Demo headers (`x-user-id`, `x-user-role`) are local/test only and must be rejected in production.
+- `NODE_ENV=production` must fail closed if required auth secrets are missing or too weak.
 - Protected API handlers and server pages must resolve the user server-side; client-provided IDs are not trusted for authorization.
 
 ```mermaid
@@ -190,9 +210,9 @@ Production auth requirements:
 Sihati centralizes route limits in `lib/security/rate-limit.ts`. The limiter exposes one API for route handlers and two adapters:
 
 - Local/test: an in-memory adapter for deterministic development and unit tests.
-- Production: a Redis/Upstash REST-compatible adapter using `RATE_LIMIT_REDIS_REST_URL` and `RATE_LIMIT_REDIS_REST_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`).
+- Production target: a Redis/Upstash REST-compatible adapter using `RATE_LIMIT_REDIS_REST_URL` and `RATE_LIMIT_REDIS_REST_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`).
 
-Production fails closed with `RATE_LIMIT_NOT_CONFIGURED` when shared Redis/Upstash settings are missing. Limiter keys include the route scope, authenticated user ID when available, and client IP address; user IDs and IP addresses are hashed before storage. Route handlers should return only the shared safe `RATE_LIMITED` JSON response for exceeded limits.
+Shared rate limiting remains a release blocker until it is configured, tested in CI/staging, and proven to fail closed when production settings are missing. Limiter keys must include the route scope, authenticated user ID when available, and client IP address; user IDs and IP addresses must be hashed before storage. Route handlers should return only the shared safe `RATE_LIMITED` JSON response for exceeded limits.
 
 Current route policy classes:
 
@@ -228,7 +248,7 @@ Permissions are centralized in `lib/auth/permissions.ts` and enforced with helpe
 
 ## 9. Payment flow
 
-Stripe payments are linked directly to appointment booking. Video appointments are created as `PENDING`; the checkout API re-loads the appointment server-side, verifies that the authenticated patient owns it, verifies it remains payable, derives the amount from the consultation reason, and creates a Stripe Checkout Session using `STRIPE_SECRET_KEY`. The browser is redirected to Stripe but is never trusted to confirm payment.
+This is the target production payment flow. Stripe checkout and webhook handling are release blockers until the implementation and tests prove signature verification, idempotency, state transitions, and failure handling end to end. In the target flow, video appointments are created as `PENDING`; the checkout API re-loads the appointment server-side, verifies that the authenticated patient owns it, verifies it remains payable, derives the amount from the consultation reason, and creates a Stripe Checkout Session using `STRIPE_SECRET_KEY`. The browser is redirected to Stripe but is never trusted to confirm payment.
 
 ```mermaid
 sequenceDiagram
@@ -248,7 +268,7 @@ sequenceDiagram
   API-->>Patient: Checkout URL
 ```
 
-Webhook processing uses `STRIPE_WEBHOOK_SECRET` and the raw request body. The handler records every Stripe event ID before applying state changes, so a repeated provider event returns a duplicate result without updating the same payment twice. `checkout.session.completed` and `payment_intent.succeeded` mark the payment `SUCCEEDED` and confirm the pending appointment in a transaction. `payment_intent.payment_failed` marks the payment `FAILED`; `checkout.session.expired` marks it `EXPIRED`. Failed and expired events do not cancel or confirm appointments.
+Target webhook processing uses `STRIPE_WEBHOOK_SECRET` and the raw request body. The handler must record every Stripe event ID before applying state changes, so a repeated provider event returns a duplicate result without updating the same payment twice. `checkout.session.completed` and `payment_intent.succeeded` should mark the payment `SUCCEEDED` and confirm the pending appointment in a transaction. `payment_intent.payment_failed` should mark the payment `FAILED`; `checkout.session.expired` should mark it `EXPIRED`. Failed and expired events must not cancel or confirm appointments.
 
 ## 10. Video consultation flow
 
@@ -320,7 +340,7 @@ Production requirements:
 - Avoid sending secrets, tokens, or unnecessary health data in messages.
 - Keep provider credentials in encrypted service configuration or server-only environment variables.
 
-## 11. Admin service configuration flow
+## 12. Admin service configuration flow
 
 Admin-managed configuration stores metadata plainly and secret bags encrypted with `APP_ENCRYPTION_KEY`. API responses return masked secret previews only.
 
@@ -364,7 +384,7 @@ Operational rules:
 - Treat service configuration as runtime configuration, not as a feature implementation.
 - Log admin actions with actor IDs and provider names, not secret values.
 
-## 12. Environment variables
+## 13. Environment variables
 
 Runtime validation is centralized in `lib/env.ts`. Copy `.env.example` to `.env.local` for local development and provide real values through the deployment platform for production.
 
@@ -389,7 +409,7 @@ openssl rand -base64 32
 openssl rand -hex 32
 ```
 
-## 13. Folder structure
+## 14. Folder structure
 
 ```text
 app/                         Next.js App Router pages and API route handlers
@@ -408,7 +428,7 @@ prisma/                      Prisma schema and future migrations
 tests/                       Unit and API tests
 ```
 
-## 14. Production architecture target
+## 15. Production architecture target
 
 For production, the recommended deployment topology is:
 
@@ -427,26 +447,67 @@ flowchart TD
   App --> Logs[CloudWatch Logs/Metrics]
 ```
 
-Minimum release gates:
+Minimum production architecture requirements:
 
 - Verified production authentication.
-- Database migrations deployed and tested with the `docs/database-production-runbook.md` workflow.
+- Database migrations deployed and tested with the [Database production runbook](database-production-runbook.md) workflow.
 - HTTPS enforced end-to-end.
 - Secrets stored outside Git.
-- Backups and restore procedure validated using the `docs/database-production-runbook.md` restore drill.
-- `npm run check` and `npm run build` passing in CI.
+- Backups and restore procedure validated using the [Database production runbook](database-production-runbook.md) restore drill.
+- CI/CD release gates passing before deployment.
 
-## Medical document storage architecture
+## CI/CD release gates
 
-Sihati stores medical document metadata in PostgreSQL and stores file bytes only in a private object store or private server-side volume. The `MedicalDocument` record includes the owning patient, optional practitioner share, optional appointment link, storage provider, opaque object key, MIME type, byte size, SHA-256 checksum, lifecycle status, creation time, and soft-delete timestamp. Application responses expose metadata and short-lived signed URLs only after authorization; object keys are treated as internal implementation details and are never public routes.
+Every release candidate must pass these checks in CI before deployment approval:
 
-The `/api/medical-documents` API uses the service/repository pattern: the route authenticates, rate limits, validates request shape, and delegates policy to `lib/services/medical-document.service.ts`. The service validates uploads, creates private object keys under patient-scoped prefixes, asks the storage signer for short-lived upload/download URLs, and writes sanitized audit events. Direct public serving of medical document objects is not part of the architecture.
+- `npm run lint`
+- `npm run typecheck`
+- `npm test`
+- `npm run build`
+- `npm audit --audit-level=moderate`
+- `npx prisma validate` or `npm run prisma:validate` with a production-shaped `DATABASE_URL`
+- Docker image build when Docker or ECS deployment is applicable
+- Staging smoke tests after deployment to a production-like environment
 
-Access is intentionally narrow:
+A release fails if any gate fails. Do not bypass failed gates for production medical, payment, authentication, or admin configuration changes. See [Testing](testing.md), [Production checklist](production-checklist.md), and [AWS deployment](aws-deployment.md).
+
+## Operational runbooks
+
+Use the runbooks below for repeatable operations. Keep them current when architecture or deployment behavior changes.
+
+| Operation | Runbook | Required use |
+| --- | --- | --- |
+| Local install | [Installation from GitHub/local](installation-github-local.md) | Developer onboarding and local reproduction. |
+| Docker local deployment | [Docker local deployment](docker.md) | Local container validation and Docker troubleshooting. |
+| AWS deployment | [AWS deployment](aws-deployment.md) | Production-like infrastructure deployment and release planning. |
+| Database migration | [Database production runbook](database-production-runbook.md) | `prisma migrate deploy`, rollback planning, and migration-role use. |
+| Backup/restore | [Database production runbook](database-production-runbook.md) | Backup verification, restore drills, and recovery evidence. |
+| Incident response | [Debugging and maintenance](debugging-maintenance.md) | Triage, rollback, and post-incident follow-up. |
+| Secret rotation | [Security](security.md) and [Service configuration](service-configuration.md) | Rotation of environment secrets and encrypted provider configuration. |
+| Provider configuration | [Service configuration](service-configuration.md), [Stripe payments](payments.md), and [Video consultation](video-consultation.md) | Configure external services without exposing secrets or enabling unverified providers. |
+
+## Medical data and privacy architecture
+
+Medical data handling must follow the minimum data principle. Store only the fields needed for booking, care coordination, authorization, audit, billing, retention, and support. Do not collect free-form health data when structured, scoped metadata is enough. Do not send PHI to analytics, logs, client-side error trackers, or provider metadata unless a documented business and legal basis exists. See [Privacy](privacy.md) and [Security](security.md).
+
+Medical document storage and access remain release blockers until implemented and validated end to end. The target design is:
+
+- Store medical document metadata in PostgreSQL and file bytes only in private object storage or a private server-side volume.
+- Treat object keys as internal implementation details. Do not expose private object keys as public routes or stable URLs.
+- Return short-lived signed upload/download URLs only after server-side authorization. Keep signed URL lifetimes short and log only sanitized metadata, never the full signed URL.
+- Encrypt data in transit with HTTPS/TLS. Encrypt data at rest for PostgreSQL, object storage, backups, and any provider-managed queues or logs that can contain sensitive metadata.
+- Write audit logs for authentication, authorization denials, appointment lifecycle actions, medical-document upload/download/delete, payment events, video join attempts, and admin configuration changes.
+- Keep audit payloads allow-listed. Do not log PHI, raw documents, secrets, tokens, cookies, Authorization headers, raw webhook bodies, decrypted configuration, or signed URL query strings.
+- Enforce retention and deletion rules. Soft-delete documents when immediate access must stop, then purge or archive according to the approved retention schedule and legal hold process.
+- Apply RGPD/privacy requirements before release: document lawful basis, purpose limitation, data minimization, patient access/export paths, rectification/deletion workflows, processor/vendor controls, cross-border transfer rules, and breach notification procedures.
+
+The target `/api/medical-documents` API uses the service/repository pattern: the route authenticates, rate limits, validates request shape, and delegates policy to the medical-document service. The service should validate uploads, create private object keys under patient-scoped prefixes, ask the storage signer for short-lived upload/download URLs, and write sanitized audit events. Direct public serving of medical document objects is not part of the architecture.
+
+Access must stay narrow:
 
 - Patients may list, upload, download, and soft-delete their own documents.
-- Practitioners may access documents explicitly shared to their practitioner ID or linked to an appointment they own.
-- Administrators may list metadata for support/compliance. Download access is disabled unless `MEDICAL_DOCUMENT_ADMIN_DOWNLOADS_ENABLED=true` and a documented access reason is supplied for a break-glass workflow.
+- Practitioners may access only documents explicitly shared to their practitioner ID or linked to an appointment they own.
+- Administrators may list metadata for support/compliance. Download access should stay disabled unless an approved, audited break-glass workflow is enabled with a documented access reason.
 
 ## Structured audit logging architecture
 
@@ -454,13 +515,13 @@ Sensitive workflows emit centralized audit events through `lib/security/audit-lo
 
 Audit payloads are allow-listed instead of free-form. A valid event may contain only actor ID/role, resource type/ID, action, result, timestamp, and request ID. The logger also exposes redaction helpers for defensive sanitization of incidental diagnostics, including secrets, tokens, cookies, Authorization headers, PHI-shaped values, raw webhook bodies, decrypted configuration, and signed URL query parameters.
 
-Current producers include:
+Required producers include:
 
 - Auth/current-user and access-control helpers for `AUTH_SUCCESS`, `AUTH_FAILURE`, and `ACCESS_DENIED`.
 - Appointment creation API for `APPOINTMENT_CREATED`.
 - Video consultation service for `VIDEO_JOIN_ATTEMPT`.
-- Medical document service for `MEDICAL_DOCUMENT_UPLOADED`, `MEDICAL_DOCUMENT_DOWNLOADED`, and medical-document access denials.
-- Payment checkout and Stripe webhook APIs for `PAYMENT_CHECKOUT_CREATED` and `PAYMENT_WEBHOOK_RECEIVED`.
+- Medical-document workflows for `MEDICAL_DOCUMENT_UPLOADED`, `MEDICAL_DOCUMENT_DOWNLOADED`, deletion events, and access denials before document storage is enabled.
+- Payment checkout and Stripe webhook workflows for `PAYMENT_CHECKOUT_CREATED` and `PAYMENT_WEBHOOK_RECEIVED` before real payments are enabled.
 - Admin service configuration service for `ADMIN_SERVICE_CONFIG_CHANGED` without decrypted secrets or provider credentials.
 
 Future modules that handle prescriptions, lab results, imaging, or other medical documents must use the same audit module and must not introduce route-local logging schemas.
