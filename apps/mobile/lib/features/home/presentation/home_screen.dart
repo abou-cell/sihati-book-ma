@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../shared/widgets/secondary_button.dart';
+import '../../../shared/widgets/status_badge.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -14,52 +18,53 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth >= 600 ? 48.0 : 24.0;
-
             return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: 24,
-              ),
+              padding: AppSpacing.screenPaddingFor(constraints.maxWidth),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 48,
+                  minHeight: constraints.maxHeight - AppSpacing.xxl,
                 ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const _BrandHeader(),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: AppSpacing.xl),
                         Text(
                           'Book an appointment with a healthcare professional in Morocco',
                           style: textTheme.headlineMedium,
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppSpacing.md),
                         Text(
                           'Find trusted practitioners for in-person visits or video consultations, with a reassuring mobile experience built for patients and care teams.',
                           style: textTheme.titleMedium,
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: AppSpacing.lg),
+                        const _TrustCard(),
+                        const SizedBox(height: AppSpacing.xl),
                         PrimaryButton(
                           label: 'Find a practitioner',
+                          icon: Icons.search,
                           onPressed: () => _showComingSoon(context),
                         ),
-                        const SizedBox(height: 12),
-                        PrimaryButton(
+                        const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
                           label: 'Login',
-                          variant: PrimaryButtonVariant.outlined,
+                          icon: Icons.lock_outline,
                           onPressed: () => _showComingSoon(context),
                         ),
-                        const SizedBox(height: 12),
-                        PrimaryButton(
+                        const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
                           label: 'Join as practitioner',
-                          variant: PrimaryButtonVariant.text,
+                          icon: Icons.medical_services_outlined,
+                          isText: true,
                           onPressed: () => _showComingSoon(context),
                         ),
                       ],
@@ -91,28 +96,51 @@ class _BrandHeader extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: AppTheme.primary.withValues(alpha: 0.12),
+          width: 80,
+          height: 80,
+          decoration: const BoxDecoration(
+            color: AppColors.primaryLight,
             shape: BoxShape.circle,
           ),
           child: const Icon(
             Icons.health_and_safety_outlined,
-            color: AppTheme.primary,
-            size: 38,
+            color: AppColors.primaryDark,
+            size: 42,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         Text(
           'Sihati',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppTheme.primaryDark,
+                color: AppColors.primaryDark,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.2,
               ),
         ),
       ],
+    );
+  }
+}
+
+class _TrustCard extends StatelessWidget {
+  const _TrustCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        runSpacing: AppSpacing.sm,
+        spacing: AppSpacing.sm,
+        children: const [
+          StatusBadge(label: 'Secure by design', tone: StatusBadgeTone.success),
+          StatusBadge(label: 'Morocco-first care', tone: StatusBadgeTone.info),
+          StatusBadge(
+            label: 'Mobile appointments',
+            tone: StatusBadgeTone.neutral,
+          ),
+        ],
+      ),
     );
   }
 }
